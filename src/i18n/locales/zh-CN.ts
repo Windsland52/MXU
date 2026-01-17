@@ -1,0 +1,155 @@
+export default {
+  // 通用
+  common: {
+    confirm: '确定',
+    cancel: '取消',
+    save: '保存',
+    delete: '删除',
+    edit: '编辑',
+    add: '添加',
+    close: '关闭',
+    loading: '加载中...',
+    error: '错误',
+    success: '成功',
+    warning: '警告',
+    info: '提示',
+  },
+
+  // 标题栏
+  titleBar: {
+    newTab: '新标签页',
+    closeTab: '关闭标签页',
+    settings: '设置',
+    about: '关于',
+    renameInstance: '重命名实例',
+    instanceName: '实例名称',
+  },
+
+  // 设置
+  settings: {
+    title: '设置',
+    appearance: '外观',
+    language: '语言',
+    theme: '主题',
+    themeLight: '浅色',
+    themeDark: '深色',
+    themeSystem: '跟随系统',
+  },
+
+  // 任务列表
+  taskList: {
+    title: '任务列表',
+    selectAll: '全选',
+    deselectAll: '取消全选',
+    collapseAll: '全部折叠',
+    expandAll: '全部展开',
+    addTask: '添加任务',
+    noTasks: '暂无任务',
+    dragToReorder: '拖拽以重新排序',
+    startTasks: '开始任务',
+    stopTasks: '停止任务',
+  },
+
+  // 任务项
+  taskItem: {
+    options: '配置选项',
+    noOptions: '无可配置选项',
+    enabled: '已启用',
+    disabled: '已禁用',
+    expand: '展开选项',
+    collapse: '折叠选项',
+    remove: '移除任务',
+    rename: '重命名',
+    renameTask: '重命名任务',
+    customName: '自定义名称',
+    originalName: '原始名称',
+  },
+
+  // 选项
+  option: {
+    select: '请选择',
+    input: '请输入',
+    yes: '是',
+    no: '否',
+    invalidInput: '输入格式不正确',
+  },
+
+  // 控制器
+  controller: {
+    title: '控制器',
+    selectController: '选择控制器',
+    adb: 'Android 设备',
+    win32: 'Windows 窗口',
+    playcover: 'PlayCover (macOS)',
+    gamepad: '游戏手柄',
+    connecting: '连接中...',
+    connected: '已连接',
+    disconnected: '未连接',
+    connectionFailed: '连接失败',
+  },
+
+  // 资源
+  resource: {
+    title: '资源包',
+    selectResource: '选择资源包',
+    loading: '加载资源中...',
+    loaded: '资源已加载',
+    loadFailed: '资源加载失败',
+  },
+
+  // 截图预览
+  screenshot: {
+    title: '实时截图',
+    refresh: '刷新',
+    autoRefresh: '自动刷新',
+    noScreenshot: '暂无截图',
+    clickToRefresh: '点击刷新',
+  },
+
+  // 日志/信息流
+  logs: {
+    title: '运行日志',
+    clear: '清空',
+    autoscroll: '自动滚动',
+    noLogs: '暂无日志',
+    copyAll: '复制全部',
+  },
+
+  // 添加任务面板
+  addTaskPanel: {
+    title: '添加任务',
+    searchPlaceholder: '搜索任务...',
+    noResults: '没有找到匹配的任务',
+    alreadyAdded: '已添加',
+  },
+
+  // 关于
+  about: {
+    title: '关于',
+    version: '版本',
+    description: '描述',
+    license: '许可证',
+    contact: '联系方式',
+    github: 'GitHub 仓库',
+  },
+
+  // 欢迎弹窗
+  welcome: {
+    dismiss: '我知道了',
+  },
+
+  // 实例
+  instance: {
+    defaultName: '实例 1',
+  },
+
+  // 错误消息
+  errors: {
+    loadInterfaceFailed: '加载 interface.json 失败',
+    invalidInterface: 'interface.json 格式无效',
+    invalidConfig: '配置文件格式无效',
+    taskNotFound: '任务不存在',
+    controllerNotFound: '控制器不存在',
+    resourceNotFound: '资源包不存在',
+  },
+};

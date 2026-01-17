@@ -1,0 +1,167 @@
+// MaaFramework ProjectInterface V2 协议类型定义
+
+export interface ProjectInterface {
+  interface_version: 2;
+  languages?: Record<string, string>;
+  name: string;
+  label?: string;
+  title?: string;
+  icon?: string;
+  mirrorchyan_rid?: string;
+  mirrorchyan_multiplatform?: boolean;
+  github?: string;
+  version?: string;
+  contact?: string;
+  license?: string;
+  welcome?: string;
+  description?: string;
+  agent?: AgentConfig;
+  controller: ControllerItem[];
+  resource: ResourceItem[];
+  task: TaskItem[];
+  option?: Record<string, OptionDefinition>;
+}
+
+export interface AgentConfig {
+  child_exec: string;
+  child_args?: string[];
+  identifier?: string;
+}
+
+export type ControllerType = 'Adb' | 'Win32' | 'PlayCover' | 'Gamepad';
+
+export interface ControllerItem {
+  name: string;
+  label?: string;
+  description?: string;
+  icon?: string;
+  type: ControllerType;
+  display_short_side?: number;
+  display_long_side?: number;
+  display_raw?: boolean;
+  permission_required?: boolean;
+  adb?: Record<string, unknown>;
+  win32?: Win32Config;
+  playcover?: PlayCoverConfig;
+  gamepad?: GamepadConfig;
+}
+
+export interface Win32Config {
+  class_regex?: string;
+  window_regex?: string;
+  mouse?: string;
+  keyboard?: string;
+  screencap?: string;
+}
+
+export interface PlayCoverConfig {
+  uuid?: string;
+}
+
+export interface GamepadConfig {
+  class_regex?: string;
+  window_regex?: string;
+  gamepad_type?: 'Xbox360' | 'DualShock4' | 'DS4';
+  screencap?: string;
+}
+
+export interface ResourceItem {
+  name: string;
+  label?: string;
+  description?: string;
+  icon?: string;
+  path: string[];
+  controller?: string[];
+  option?: string[];
+}
+
+export interface TaskItem {
+  name: string;
+  label?: string;
+  entry: string;
+  default_check?: boolean;
+  description?: string;
+  icon?: string;
+  resource?: string[];
+  controller?: string[];
+  pipeline_override?: Record<string, unknown>;
+  option?: string[];
+}
+
+export type OptionType = 'select' | 'input' | 'switch';
+
+export interface CaseItem {
+  name: string;
+  label?: string;
+  description?: string;
+  icon?: string;
+  option?: string[];
+  pipeline_override?: Record<string, unknown>;
+}
+
+export interface InputItem {
+  name: string;
+  label?: string;
+  description?: string;
+  default?: string;
+  pipeline_type?: 'string' | 'int' | 'bool';
+  verify?: string;
+  pattern_msg?: string;
+}
+
+export interface SelectOption {
+  type?: 'select';
+  label?: string;
+  description?: string;
+  icon?: string;
+  cases: CaseItem[];
+  default_case?: string;
+}
+
+export interface SwitchOption {
+  type: 'switch';
+  label?: string;
+  description?: string;
+  icon?: string;
+  cases: [CaseItem, CaseItem];
+  default_case?: string;
+}
+
+export interface InputOption {
+  type: 'input';
+  label?: string;
+  description?: string;
+  icon?: string;
+  inputs: InputItem[];
+  pipeline_override?: Record<string, unknown>;
+}
+
+export type OptionDefinition = SelectOption | SwitchOption | InputOption;
+
+// 运行时状态类型
+export interface SelectedTask {
+  id: string;
+  taskName: string;
+  customName?: string;        // 用户自定义名称
+  enabled: boolean;
+  optionValues: Record<string, OptionValue>;
+  expanded: boolean;
+}
+
+export type OptionValue = 
+  | { type: 'select'; caseName: string }
+  | { type: 'switch'; value: boolean }
+  | { type: 'input'; values: Record<string, string> };
+
+// 多开实例状态
+export interface Instance {
+  id: string;
+  name: string;
+  controllerId?: string;
+  resourceId?: string;
+  selectedTasks: SelectedTask[];
+  isRunning: boolean;
+}
+
+// 翻译文件类型
+export type TranslationMap = Record<string, string>;
