@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { RefreshCw, Monitor, ChevronDown, ChevronUp, Play, Pause } from 'lucide-react';
+import { Maximize2, X, Monitor, ChevronDown, ChevronUp, Play, Pause } from 'lucide-react';
 import clsx from 'clsx';
 import { maaService } from '@/services/maaService';
 import { useAppStore } from '@/stores/appStore';
@@ -16,10 +16,10 @@ export function ScreenshotPanel() {
   const { activeInstanceId, instanceConnectionStatus } = useAppStore();
   
   const [isCollapsed, setIsCollapsed] = useState(false);
-  const [isRefreshing, setIsRefreshing] = useState(false);
   const [screenshotUrl, setScreenshotUrl] = useState<string | null>(null);
   const [isStreaming, setIsStreaming] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isFullscreen, setIsFullscreen] = useState(false);
   
   // 用于控制截图流的引用
   const streamingRef = useRef(false);
@@ -67,26 +67,28 @@ export function ScreenshotPanel() {
     }
   }, [instanceId]);
 
-  // 手动刷新截图
-  const handleRefresh = async (e?: React.MouseEvent) => {
+  // 全屏模式切换
+  const toggleFullscreen = (e?: React.MouseEvent) => {
     e?.stopPropagation();
-    
-    if (!instanceId || isRefreshing) return;
-    
-    setIsRefreshing(true);
-    setError(null);
-    
-    try {
-      const imageData = await captureFrame();
-      if (imageData) {
-        setScreenshotUrl(imageData);
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : t('screenshot.refreshFailed'));
-    } finally {
-      setIsRefreshing(false);
-    }
+    setIsFullscreen(!isFullscreen);
   };
+
+  // ESC 键退出全屏
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isFullscreen) {
+        setIsFullscreen(false);
+      }
+    };
+    
+    if (isFullscreen) {
+      document.addEventListener('keydown', handleKeyDown);
+    }
+    
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isFullscreen]);
 
   // 截图流循环
   const streamLoop = useCallback(async () => {
@@ -212,21 +214,19 @@ export function ScreenshotPanel() {
             )}
           </button>
           
-          {/* 刷新按钮 */}
+          {/* 全屏按钮 */}
           <button
-            onClick={handleRefresh}
-            disabled={isRefreshing || isStreaming || !instanceId}
+            onClick={toggleFullscreen}
+            disabled={!screenshotUrl}
             className={clsx(
               'p-1 rounded-md transition-colors',
-              isRefreshing || isStreaming || !instanceId
+              !screenshotUrl
                 ? 'text-text-muted cursor-not-allowed'
                 : 'text-text-secondary hover:bg-bg-tertiary hover:text-text-primary'
             )}
-            title={t('screenshot.refresh')}
+            title={t('screenshot.fullscreen')}
           >
-            <RefreshCw
-              className={clsx('w-3.5 h-3.5', isRefreshing && 'animate-spin')}
-            />
+            <Maximize2 className="w-3.5 h-3.5" />
           </button>
           {isCollapsed ? (
             <ChevronDown className="w-4 h-4 text-text-muted" />
@@ -264,23 +264,47 @@ export function ScreenshotPanel() {
                 ) : (
                   <>
                     <span className="text-xs">{t('screenshot.noScreenshot')}</span>
-                    {instanceId ? (
-                      <button
-                        onClick={() => handleRefresh()}
-                        className="text-xs text-accent hover:underline"
-                      >
-                        {t('screenshot.clickToRefresh')}
-                      </button>
-                    ) : (
-                      <span className="text-xs text-text-muted">
-                        {t('screenshot.connectFirst')}
-                      </span>
-                    )}
+                    <span className="text-xs text-text-muted">
+                      {t('screenshot.connectFirst')}
+                    </span>
                   </>
                 )}
               </div>
             )}
           </div>
+        </div>
+      )}
+
+      {/* 全屏模态框 */}
+      {isFullscreen && screenshotUrl && (
+        <div 
+          className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center"
+          onClick={toggleFullscreen}
+        >
+          {/* 关闭按钮 */}
+          <button
+            onClick={toggleFullscreen}
+            className="absolute top-4 right-4 p-2 rounded-lg bg-white/10 hover:bg-white/20 text-white transition-colors"
+            title={t('screenshot.exitFullscreen')}
+          >
+            <X className="w-6 h-6" />
+          </button>
+          
+          {/* 全屏图片 */}
+          <img
+            src={screenshotUrl}
+            alt="Screenshot"
+            className="max-w-full max-h-full object-contain"
+            onClick={(e) => e.stopPropagation()}
+          />
+          
+          {/* 流模式指示器 */}
+          {isStreaming && (
+            <div className="absolute top-4 left-4 flex items-center gap-1 px-2 py-1 bg-green-500/80 rounded text-white text-sm">
+              <span className="w-2 h-2 bg-white rounded-full animate-pulse" />
+              LIVE
+            </div>
+          )}
         </div>
       )}
     </div>

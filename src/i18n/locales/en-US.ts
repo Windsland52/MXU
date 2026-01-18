@@ -117,14 +117,13 @@ export default {
   // Screenshot preview
   screenshot: {
     title: 'Live Screenshot',
-    refresh: 'Refresh',
     autoRefresh: 'Auto Refresh',
     noScreenshot: 'No screenshot',
-    clickToRefresh: 'Click to refresh',
     startStream: 'Start Live Stream',
     stopStream: 'Stop Live Stream',
-    refreshFailed: 'Screenshot refresh failed',
     connectFirst: 'Please connect a device first',
+    fullscreen: 'Fullscreen',
+    exitFullscreen: 'Exit Fullscreen',
   },
 
   // Logs
