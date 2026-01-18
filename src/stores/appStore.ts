@@ -148,6 +148,55 @@ const createDefaultOptionValue = (optionDef: OptionDefinition): OptionValue => {
   return { type: 'select', caseName: defaultCase };
 };
 
+/**
+ * 递归初始化所有选项（包括嵌套选项）的默认值
+ * @param optionKeys 顶层选项键列表
+ * @param allOptions 所有选项定义
+ * @param result 结果对象（用于递归累积）
+ */
+const initializeAllOptionValues = (
+  optionKeys: string[],
+  allOptions: Record<string, OptionDefinition>,
+  result: Record<string, OptionValue> = {}
+): Record<string, OptionValue> => {
+  for (const optKey of optionKeys) {
+    const optDef = allOptions[optKey];
+    if (!optDef) continue;
+    
+    // 如果已经初始化过，跳过（避免循环引用）
+    if (result[optKey]) continue;
+    
+    // 创建当前选项的默认值
+    result[optKey] = createDefaultOptionValue(optDef);
+    
+    // 处理嵌套选项：根据当前默认值找到对应的 case，递归初始化其子选项
+    if (optDef.type === 'switch' || optDef.type === 'select' || !optDef.type) {
+      const currentValue = result[optKey];
+      let selectedCase;
+      
+      if (optDef.type === 'switch' && 'cases' in optDef) {
+        const isChecked = currentValue.type === 'switch' && currentValue.value;
+        selectedCase = optDef.cases?.find((c) => {
+          if (isChecked) {
+            return ['Yes', 'yes', 'Y', 'y'].includes(c.name);
+          }
+          return ['No', 'no', 'N', 'n'].includes(c.name);
+        });
+      } else if ('cases' in optDef) {
+        const caseName = currentValue.type === 'select' ? currentValue.caseName : optDef.cases?.[0]?.name;
+        selectedCase = optDef.cases?.find((c) => c.name === caseName);
+      }
+      
+      // 递归初始化嵌套选项
+      if (selectedCase?.option && selectedCase.option.length > 0) {
+        initializeAllOptionValues(selectedCase.option, allOptions, result);
+      }
+    }
+  }
+  
+  return result;
+};
+
 export const useAppStore = create<AppState>()(
   subscribeWithSelector(
     (set, get) => ({
@@ -194,13 +243,10 @@ export const useAppStore = create<AppState>()(
         const defaultTasks: SelectedTask[] = [];
         if (pi) {
           pi.task.filter(t => t.default_check).forEach(task => {
-            const optionValues: Record<string, OptionValue> = {};
-            task.option?.forEach(optKey => {
-              const optDef = pi.option?.[optKey];
-              if (optDef) {
-                optionValues[optKey] = createDefaultOptionValue(optDef);
-              }
-            });
+            // 递归初始化所有选项（包括嵌套选项）
+            const optionValues = task.option && pi.option
+              ? initializeAllOptionValues(task.option, pi.option)
+              : {};
             defaultTasks.push({
               id: generateId(),
               taskName: task.name,
@@ -272,13 +318,10 @@ export const useAppStore = create<AppState>()(
         const pi = get().projectInterface;
         if (!pi) return;
         
-        const optionValues: Record<string, OptionValue> = {};
-        task.option?.forEach(optKey => {
-          const optDef = pi.option?.[optKey];
-          if (optDef) {
-            optionValues[optKey] = createDefaultOptionValue(optDef);
-          }
-        });
+        // 递归初始化所有选项（包括嵌套选项）
+        const optionValues = task.option && pi.option
+          ? initializeAllOptionValues(task.option, pi.option)
+          : {};
         
         const newTask: SelectedTask = {
           id: generateId(),
@@ -343,20 +386,60 @@ export const useAppStore = create<AppState>()(
         ),
       })),
       
-      setTaskOptionValue: (instanceId, taskId, optionKey, value) => set((state) => ({
-        instances: state.instances.map(i => 
-          i.id === instanceId 
-            ? {
-                ...i,
-                selectedTasks: i.selectedTasks.map(t => 
-                  t.id === taskId 
-                    ? { ...t, optionValues: { ...t.optionValues, [optionKey]: value } }
-                    : t
-                ),
-              }
-            : i
-        ),
-      })),
+      setTaskOptionValue: (instanceId, taskId, optionKey, value) => {
+        const pi = get().projectInterface;
+        
+        set((state) => ({
+          instances: state.instances.map(i => {
+            if (i.id !== instanceId) return i;
+            
+            return {
+              ...i,
+              selectedTasks: i.selectedTasks.map(t => {
+                if (t.id !== taskId) return t;
+                
+                const newOptionValues = { ...t.optionValues, [optionKey]: value };
+                
+                // 当选项值改变时，初始化新的嵌套选项
+                if (pi?.option) {
+                  const optDef = pi.option[optionKey];
+                  if (optDef && (optDef.type === 'switch' || optDef.type === 'select' || !optDef.type) && 'cases' in optDef) {
+                    let selectedCase;
+                    
+                    if (optDef.type === 'switch') {
+                      const isChecked = value.type === 'switch' && value.value;
+                      selectedCase = optDef.cases?.find((c) => {
+                        if (isChecked) {
+                          return ['Yes', 'yes', 'Y', 'y'].includes(c.name);
+                        }
+                        return ['No', 'no', 'N', 'n'].includes(c.name);
+                      });
+                    } else {
+                      const caseName = value.type === 'select' ? value.caseName : optDef.cases?.[0]?.name;
+                      selectedCase = optDef.cases?.find((c) => c.name === caseName);
+                    }
+                    
+                    // 初始化嵌套选项（如果尚未初始化）
+                    if (selectedCase?.option && selectedCase.option.length > 0) {
+                      for (const nestedKey of selectedCase.option) {
+                        if (!newOptionValues[nestedKey]) {
+                          const nestedDef = pi.option[nestedKey];
+                          if (nestedDef) {
+                            const nestedValues = initializeAllOptionValues([nestedKey], pi.option);
+                            Object.assign(newOptionValues, nestedValues);
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+                
+                return { ...t, optionValues: newOptionValues };
+              }),
+            };
+          }),
+        }));
+      },
       
       selectAllTasks: (instanceId, enabled) => set((state) => ({
         instances: state.instances.map(i => 

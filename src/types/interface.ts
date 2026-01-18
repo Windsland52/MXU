@@ -103,6 +103,7 @@ export interface InputItem {
   name: string;
   label?: string;
   description?: string;
+  icon?: string;
   default?: string;
   pipeline_type?: 'string' | 'int' | 'bool';
   verify?: string;
