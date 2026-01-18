@@ -4,6 +4,9 @@ import { RefreshCw, Monitor, ChevronDown, ChevronUp, Play, Pause } from 'lucide-
 import clsx from 'clsx';
 import { maaService } from '@/services/maaService';
 import { useAppStore } from '@/stores/appStore';
+import { loggers } from '@/utils/logger';
+
+const log = loggers.ui;
 
 // 默认帧率限制：每秒 5 帧
 const DEFAULT_FPS = 5;
@@ -46,7 +49,7 @@ export function ScreenshotPanel() {
       const imageData = await maaService.getCachedImage(instanceId);
       return imageData || null;
     } catch (err) {
-      console.error('[ScreenshotPanel] captureFrame error:', err);
+      log.warn('截图失败:', err);
       throw err;
     }
   }, [instanceId]);
@@ -59,7 +62,7 @@ export function ScreenshotPanel() {
       const imageData = await maaService.getCachedImage(instanceId);
       return imageData || null;
     } catch (err) {
-      console.error('[ScreenshotPanel] getCachedFrame error:', err);
+      log.warn('获取缓存截图失败:', err);
       throw err;
     }
   }, [instanceId]);
@@ -117,9 +120,8 @@ export function ScreenshotPanel() {
           setScreenshotUrl(imageData);
           setError(null);
         }
-      } catch (err) {
+      } catch {
         // 静默处理错误，继续下一帧
-        console.error('[ScreenshotPanel] streamLoop error:', err);
       }
       
       // 短暂等待再进行下一次循环检查

@@ -14,6 +14,9 @@ import {
 import { autoLoadInterface, loadConfig, loadConfigFromStorage, resolveI18nText } from '@/services';
 import { Loader2, AlertCircle, RefreshCw } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { loggers } from '@/utils/logger';
+
+const log = loggers.app;
 
 type LoadingState = 'loading' | 'success' | 'error';
 
@@ -33,11 +36,9 @@ async function setWindowTitle(title: string) {
     try {
       const { getCurrentWindow } = await import('@tauri-apps/api/window');
       const currentWindow = getCurrentWindow();
-      console.log('设置窗口标题:', title, currentWindow);
       await currentWindow.setTitle(title);
-      console.log('窗口标题设置成功');
     } catch (err) {
-      console.error('设置窗口标题失败:', err);
+      log.warn('设置窗口标题失败:', err);
     }
   }
 }
@@ -90,6 +91,7 @@ function App() {
     setErrorMessage('');
 
     try {
+      log.info('加载 interface.json...');
       const result = await autoLoadInterface();
       setProjectInterface(result.interface);
       setBasePath(result.basePath);
@@ -115,6 +117,7 @@ function App() {
         importConfig(config);
       }
 
+      log.info('加载完成, 项目:', result.interface.name);
       setLoadingState('success');
 
       // 如果没有实例，创建一个默认实例
@@ -125,7 +128,7 @@ function App() {
         }
       }, 0);
     } catch (err) {
-      console.error('加载 interface.json 失败:', err);
+      log.error('加载 interface.json 失败:', err);
       setErrorMessage(err instanceof Error ? err.message : '加载失败');
       setLoadingState('error');
     }

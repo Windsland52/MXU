@@ -20,6 +20,9 @@ import { useAppStore } from '@/stores/appStore';
 import type { AdbDevice, Win32Window, ControllerConfig } from '@/types/maa';
 import type { ControllerItem } from '@/types/interface';
 import { parseWin32ScreencapMethod, parseWin32InputMethod } from '@/types/maa';
+import { loggers } from '@/utils/logger';
+
+const log = loggers.device;
 
 interface DeviceSelectorProps {
   instanceId: string;
@@ -60,16 +63,13 @@ export function DeviceSelector({ instanceId, controllerDef, onConnectionChange }
 
   // 初始化 MaaFramework（如果还没初始化）
   const ensureMaaInitialized = async () => {
-    console.log('[DeviceSelector] Ensuring MaaFramework is initialized, basePath:', basePath);
-    
     // 尝试获取版本来检测是否已初始化
     try {
-      const version = await maaService.getVersion();
-      console.log('[DeviceSelector] MaaFramework already initialized, version:', version);
+      await maaService.getVersion();
       return true;
     } catch {
       // 未初始化，需要初始化
-      console.log('[DeviceSelector] MaaFramework not initialized, attempting to init...');
+      log.debug('MaaFramework 未初始化，尝试初始化...');
     }
     
     // 构建可能的库路径列表
@@ -80,30 +80,26 @@ export function DeviceSelector({ instanceId, controllerDef, onConnectionChange }
     
     if (isTauriEnv) {
       try {
-        // 在 Tauri 环境中，使用实际的文件系统路径
         const { resourceDir, appDataDir } = await import('@tauri-apps/api/path');
         
         // 尝试资源目录
         try {
           const resDir = await resourceDir();
-          console.log('[DeviceSelector] Tauri resourceDir:', resDir);
           possibleLibPaths.push(resDir);
           possibleLibPaths.push(`${resDir}bin`);
-        } catch (e) {
-          console.log('[DeviceSelector] Failed to get resourceDir:', e);
+        } catch {
+          // 忽略
         }
         
         // 尝试应用数据目录
         try {
           const dataDir = await appDataDir();
-          console.log('[DeviceSelector] Tauri appDataDir:', dataDir);
           possibleLibPaths.push(dataDir);
-        } catch (e) {
-          console.log('[DeviceSelector] Failed to get appDataDir:', e);
+        } catch {
+          // 忽略
         }
         
         // 开发环境：尝试当前工作目录
-        // 注意：Windows 路径使用反斜杠
         possibleLibPaths.push('.');
         possibleLibPaths.push('./bin');
         
@@ -112,8 +108,8 @@ export function DeviceSelector({ instanceId, controllerDef, onConnectionChange }
           possibleLibPaths.push(basePath);
           possibleLibPaths.push(`${basePath}/bin`);
         }
-      } catch (e) {
-        console.log('[DeviceSelector] Failed to import Tauri path API:', e);
+      } catch {
+        // 忽略
       }
     }
     
@@ -123,19 +119,18 @@ export function DeviceSelector({ instanceId, controllerDef, onConnectionChange }
       possibleLibPaths.push('./bin');
     }
     
-    console.log('[DeviceSelector] Possible lib paths:', possibleLibPaths);
+    log.debug('尝试初始化路径:', possibleLibPaths);
     
     for (const libPath of possibleLibPaths) {
       try {
-        console.log('[DeviceSelector] Trying to init MaaFramework from:', libPath);
-        const version = await maaService.init(libPath);
-        console.log('[DeviceSelector] MaaFramework initialized successfully, version:', version);
+        await maaService.init(libPath);
         return true;
-      } catch (err) {
-        console.log('[DeviceSelector] Failed to init from', libPath, ':', err);
+      } catch {
+        // 继续尝试下一个路径
       }
     }
     
+    log.error('所有路径均无法初始化 MaaFramework');
     return false;
   };
 
@@ -145,8 +140,6 @@ export function DeviceSelector({ instanceId, controllerDef, onConnectionChange }
     setError(null);
 
     try {
-      console.log('[DeviceSelector] handleSearch called, controllerType:', controllerType);
-      
       // 确保 MaaFramework 已初始化
       const initialized = await ensureMaaInitialized();
       if (!initialized) {
@@ -154,34 +147,28 @@ export function DeviceSelector({ instanceId, controllerDef, onConnectionChange }
       }
       
       if (controllerType === 'Adb') {
-        console.log('[DeviceSelector] Calling maaService.findAdbDevices()...');
         const devices = await maaService.findAdbDevices();
-        console.log('[DeviceSelector] findAdbDevices returned:', devices);
         setCachedAdbDevices(devices);
         if (devices.length === 1) {
           setSelectedAdbDevice(devices[0]);
         }
-        // 搜索完成后自动弹出下拉框
         if (devices.length > 0) {
           setShowDropdown(true);
         }
       } else if (controllerType === 'Win32' || controllerType === 'Gamepad') {
         const classRegex = controllerDef.win32?.class_regex || controllerDef.gamepad?.class_regex;
         const windowRegex = controllerDef.win32?.window_regex || controllerDef.gamepad?.window_regex;
-        console.log('[DeviceSelector] Calling maaService.findWin32Windows with classRegex:', classRegex, 'windowRegex:', windowRegex);
         const windows = await maaService.findWin32Windows(classRegex, windowRegex);
-        console.log('[DeviceSelector] findWin32Windows returned:', windows);
         setCachedWin32Windows(windows);
         if (windows.length === 1) {
           setSelectedWindow(windows[0]);
         }
-        // 搜索完成后自动弹出下拉框
         if (windows.length > 0) {
           setShowDropdown(true);
         }
       }
     } catch (err) {
-      console.error('[DeviceSelector] Search error:', err);
+      log.error('搜索设备失败:', err);
       setError(err instanceof Error ? err.message : '搜索失败');
     } finally {
       setIsSearching(false);
@@ -190,28 +177,18 @@ export function DeviceSelector({ instanceId, controllerDef, onConnectionChange }
 
   // 连接设备
   const handleConnect = async () => {
-    console.log('[DeviceSelector] handleConnect called');
-    console.log('[DeviceSelector] controllerType:', controllerType);
-    console.log('[DeviceSelector] selectedAdbDevice:', selectedAdbDevice);
-    console.log('[DeviceSelector] selectedWindow:', selectedWindow);
-    
     setIsConnecting(true);
     setError(null);
 
     try {
       // 确保 MaaFramework 已初始化（用户可能跳过刷新直接点连接）
-      console.log('[DeviceSelector] Ensuring MaaFramework initialized...');
       const initialized = await ensureMaaInitialized();
-      console.log('[DeviceSelector] MaaFramework initialized:', initialized);
       if (!initialized) {
         throw new Error('无法初始化 MaaFramework，请确保 MaaFramework 动态库在正确的位置');
       }
 
       // 确保实例已创建
-      console.log('[DeviceSelector] Creating instance:', instanceId);
-      await maaService.createInstance(instanceId).catch((e) => {
-        console.log('[DeviceSelector] createInstance error (may be expected):', e);
-      });
+      await maaService.createInstance(instanceId).catch(() => {});
 
       let config: ControllerConfig;
 
@@ -224,7 +201,6 @@ export function DeviceSelector({ instanceId, controllerDef, onConnectionChange }
           input_methods: selectedAdbDevice.input_methods,
           config: selectedAdbDevice.config,
         };
-        console.log('[DeviceSelector] Built Adb config:', config);
       } else if (controllerType === 'Win32' && selectedWindow) {
         config = {
           type: 'Win32',
@@ -233,35 +209,26 @@ export function DeviceSelector({ instanceId, controllerDef, onConnectionChange }
           mouse_method: parseWin32InputMethod(controllerDef.win32?.mouse || ''),
           keyboard_method: parseWin32InputMethod(controllerDef.win32?.keyboard || ''),
         };
-        console.log('[DeviceSelector] Built Win32 config:', config);
       } else if (controllerType === 'PlayCover') {
         config = {
           type: 'PlayCover',
           address: playcoverAddress,
         };
-        console.log('[DeviceSelector] Built PlayCover config:', config);
       } else if (controllerType === 'Gamepad' && selectedWindow) {
         config = {
           type: 'Gamepad',
           handle: selectedWindow.handle,
         };
-        console.log('[DeviceSelector] Built Gamepad config:', config);
       } else {
-        console.log('[DeviceSelector] No device selected, throwing error');
         throw new Error('请先选择设备');
       }
 
-      // MaaAgentBinary 路径
       const agentPath = `${basePath}/MaaAgentBinary`;
-      console.log('[DeviceSelector] agentPath:', agentPath);
-
-      console.log('[DeviceSelector] Calling maaService.connectController...');
       await maaService.connectController(instanceId, config, agentPath);
-      console.log('[DeviceSelector] connectController succeeded');
       setIsConnected(true);
       onConnectionChange?.(true);
     } catch (err) {
-      console.error('[DeviceSelector] handleConnect error:', err);
+      log.error('连接失败:', err);
       setError(err instanceof Error ? err.message : '连接失败');
       setIsConnected(false);
       onConnectionChange?.(false);
@@ -276,8 +243,9 @@ export function DeviceSelector({ instanceId, controllerDef, onConnectionChange }
       await maaService.destroyInstance(instanceId);
       setIsConnected(false);
       onConnectionChange?.(false);
+      log.info('已断开连接');
     } catch (err) {
-      console.error('断开连接失败:', err);
+      log.error('断开连接失败:', err);
     }
   };
 
@@ -323,7 +291,7 @@ export function DeviceSelector({ instanceId, controllerDef, onConnectionChange }
       setIsConnected(true);
       onConnectionChange?.(true);
     } catch (err) {
-      console.error('[DeviceSelector] Auto connect error:', err);
+      log.error('自动连接失败:', err);
       setError(err instanceof Error ? err.message : '连接失败');
       setIsConnected(false);
       onConnectionChange?.(false);
@@ -370,7 +338,7 @@ export function DeviceSelector({ instanceId, controllerDef, onConnectionChange }
       setIsConnected(true);
       onConnectionChange?.(true);
     } catch (err) {
-      console.error('[DeviceSelector] Auto connect error:', err);
+      log.error('自动连接失败:', err);
       setError(err instanceof Error ? err.message : '连接失败');
       setIsConnected(false);
       onConnectionChange?.(false);

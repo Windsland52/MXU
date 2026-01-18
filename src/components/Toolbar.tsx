@@ -13,6 +13,9 @@ import {
 import { useAppStore } from '@/stores/appStore';
 import { maaService } from '@/services/maaService';
 import clsx from 'clsx';
+import { loggers } from '@/utils/logger';
+
+const log = loggers.task;
 
 interface ToolbarProps {
   showAddPanel: boolean;
@@ -97,7 +100,7 @@ export function Toolbar({ showAddPanel, onToggleAddPanel }: ToolbarProps) {
           try {
             Object.assign(overrides, JSON.parse(overrideStr));
           } catch {
-            console.warn('Failed to parse input option override:', overrideStr);
+            log.warn('解析选项覆盖失败');
           }
         }
       }
@@ -112,17 +115,18 @@ export function Toolbar({ showAddPanel, onToggleAddPanel }: ToolbarProps) {
     if (instance.isRunning) {
       // 停止任务
       try {
+        log.info('停止任务...');
         await maaService.stopTask(instance.id);
         updateInstance(instance.id, { isRunning: false });
         setInstanceTaskStatus(instance.id, null);
         setInstanceCurrentTaskId(instance.id, null);
       } catch (err) {
-        console.error('停止任务失败:', err);
+        log.error('停止任务失败:', err);
       }
     } else {
       // 启动任务
       if (!canRun) {
-        console.warn('无法运行任务：未连接或资源未加载');
+        log.warn('无法运行任务：未连接或资源未加载');
         return;
       }
 
@@ -130,6 +134,7 @@ export function Toolbar({ showAddPanel, onToggleAddPanel }: ToolbarProps) {
 
       try {
         const enabledTasks = tasks.filter(t => t.enabled);
+        log.info('开始执行任务, 数量:', enabledTasks.length);
         
         // 依次运行每个启用的任务
         for (const selectedTask of enabledTasks) {
@@ -151,15 +156,16 @@ export function Toolbar({ showAddPanel, onToggleAddPanel }: ToolbarProps) {
           setInstanceTaskStatus(instance.id, status);
 
           if (status === 'Failed') {
-            console.error('任务执行失败:', taskDef.name);
+            log.error('任务执行失败:', taskDef.name);
             break;
           }
         }
 
+        log.info('所有任务执行完成');
         updateInstance(instance.id, { isRunning: false });
         setInstanceCurrentTaskId(instance.id, null);
       } catch (err) {
-        console.error('任务执行失败:', err);
+        log.error('任务执行异常:', err);
         updateInstance(instance.id, { isRunning: false });
         setInstanceTaskStatus(instance.id, 'Failed');
       } finally {

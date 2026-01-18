@@ -1,4 +1,7 @@
 import type { ProjectInterface } from '@/types/interface';
+import { loggers } from '@/utils/logger';
+
+const log = loggers.app;
 
 export interface LoadResult {
   interface: ProjectInterface;
@@ -58,7 +61,7 @@ async function loadTranslationsFromHttp(
         translations[lang] = JSON.parse(langContent);
       }
     } catch (err) {
-      console.warn(`加载翻译文件失败 [${lang}]:`, err);
+      log.warn(`加载翻译文件失败 [${lang}]:`, err);
     }
   }
 
@@ -81,6 +84,7 @@ export async function autoLoadInterface(): Promise<LoadResult> {
   }
 
   if (await httpFileExists(debugPath)) {
+    log.info('使用调试模式加载 interface.json');
     const pi = await loadInterfaceFromHttp(debugPath);
     const translations = await loadTranslationsFromHttp(pi, '/test');
     return { interface: pi, translations, basePath: '/test', isDebugMode: true };

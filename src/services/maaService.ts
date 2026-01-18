@@ -9,6 +9,9 @@ import type {
   ConnectionStatus,
   TaskStatus,
 } from '@/types/maa';
+import { loggers } from '@/utils/logger';
+
+const log = loggers.maa;
 
 // 检测是否在 Tauri 环境中
 const isTauri = () => {
@@ -23,11 +26,10 @@ export const maaService = {
    * @returns 版本号
    */
   async init(libDir?: string): Promise<string> {
-    // if (!isTauri()) {
-    //   console.warn('MaaService: Not in Tauri environment');
-    //   return 'mock-version';
-    // }
-    return await invoke<string>('maa_init', { libDir: libDir || null });
+    log.info('初始化 MaaFramework, libDir:', libDir || '(默认)');
+    const version = await invoke<string>('maa_init', { libDir: libDir || null });
+    log.info('MaaFramework 版本:', version);
+    return version;
   },
 
   /**
@@ -36,6 +38,7 @@ export const maaService = {
    */
   async setResourceDir(resourceDir: string): Promise<void> {
     if (!isTauri()) return;
+    log.debug('设置资源目录:', resourceDir);
     return await invoke('maa_set_resource_dir', { resourceDir });
   },
 
@@ -43,7 +46,6 @@ export const maaService = {
    * 获取 MaaFramework 版本
    */
   async getVersion(): Promise<string> {
-    // if (!isTauri()) return 'mock-version';
     return await invoke<string>('maa_get_version');
   },
 
@@ -51,20 +53,10 @@ export const maaService = {
    * 查找 ADB 设备
    */
   async findAdbDevices(): Promise<AdbDevice[]> {
-    // if (!isTauri()) {
-    //   // 返回模拟数据用于开发
-    //   return [
-    //     {
-    //       name: 'Mock Emulator',
-    //       adb_path: 'C:\\Program Files\\Mock\\adb.exe',
-    //       address: '127.0.0.1:5555',
-    //       screencap_methods: 0xFFFFFFFF,
-    //       input_methods: 0xFFFFFFFF,
-    //       config: '{}',
-    //     },
-    //   ];
-    // }
-    return await invoke<AdbDevice[]>('maa_find_adb_devices');
+    log.debug('搜索 ADB 设备...');
+    const devices = await invoke<AdbDevice[]>('maa_find_adb_devices');
+    log.info('找到 ADB 设备:', devices.length, '个');
+    return devices;
   },
 
   /**
@@ -73,20 +65,13 @@ export const maaService = {
    * @param windowRegex 窗口标题正则表达式（可选）
    */
   async findWin32Windows(classRegex?: string, windowRegex?: string): Promise<Win32Window[]> {
-    // if (!isTauri()) {
-    //   // 返回模拟数据用于开发
-    //   return [
-    //     {
-    //       handle: 12345,
-    //       class_name: 'MockWindowClass',
-    //       window_name: 'Mock Window',
-    //     },
-    //   ];
-    // }
-    return await invoke<Win32Window[]>('maa_find_win32_windows', {
+    log.debug('搜索 Win32 窗口, classRegex:', classRegex, 'windowRegex:', windowRegex);
+    const windows = await invoke<Win32Window[]>('maa_find_win32_windows', {
       classRegex: classRegex || null,
       windowRegex: windowRegex || null,
     });
+    log.info('找到 Win32 窗口:', windows.length, '个');
+    return windows;
   },
 
   /**
@@ -95,6 +80,7 @@ export const maaService = {
    */
   async createInstance(instanceId: string): Promise<void> {
     if (!isTauri()) return;
+    log.debug('创建实例:', instanceId);
     return await invoke('maa_create_instance', { instanceId });
   },
 
@@ -104,6 +90,7 @@ export const maaService = {
    */
   async destroyInstance(instanceId: string): Promise<void> {
     if (!isTauri()) return;
+    log.debug('销毁实例:', instanceId);
     return await invoke('maa_destroy_instance', { instanceId });
   },
 
@@ -118,30 +105,24 @@ export const maaService = {
     config: ControllerConfig,
     agentPath?: string
   ): Promise<void> {
-    console.log('[maaService] connectController called');
-    console.log('[maaService] instanceId:', instanceId);
-    console.log('[maaService] config:', JSON.stringify(config, null, 2));
-    console.log('[maaService] agentPath:', agentPath);
-    console.log('[maaService] isTauri():', isTauri());
+    log.info('连接控制器, 实例:', instanceId, '类型:', config.type);
+    log.debug('控制器配置:', config);
     
     if (!isTauri()) {
-      console.log('[maaService] Not in Tauri env, simulating delay...');
-      // 模拟连接延迟
+      log.warn('非 Tauri 环境，模拟连接延迟');
       await new Promise(resolve => setTimeout(resolve, 1000));
       return;
     }
     
-    console.log('[maaService] Invoking maa_connect_controller...');
     try {
-      const result = await invoke('maa_connect_controller', {
+      await invoke('maa_connect_controller', {
         instanceId,
         config,
         agentPath: agentPath || null,
       });
-      console.log('[maaService] maa_connect_controller result:', result);
-      return result as void;
+      log.info('控制器连接成功');
     } catch (err) {
-      console.error('[maaService] maa_connect_controller error:', err);
+      log.error('控制器连接失败:', err);
       throw err;
     }
   },
@@ -161,8 +142,8 @@ export const maaService = {
    * @param paths 资源路径列表
    */
   async loadResource(instanceId: string, paths: string[]): Promise<void> {
+    log.info('加载资源, 实例:', instanceId, '路径数:', paths.length);
     if (!isTauri()) {
-      // 模拟加载延迟
       await new Promise(resolve => setTimeout(resolve, 500));
       return;
     }
@@ -186,8 +167,8 @@ export const maaService = {
    * @returns 任务 ID
    */
   async runTask(instanceId: string, entry: string, pipelineOverride: string = '{}'): Promise<number> {
+    log.info('运行任务, 实例:', instanceId, '入口:', entry);
     if (!isTauri()) {
-      // 返回模拟任务 ID
       return Math.floor(Math.random() * 10000);
     }
     return await invoke<number>('maa_run_task', {
@@ -203,12 +184,14 @@ export const maaService = {
    * @param taskId 任务 ID
    */
   async waitTask(instanceId: string, taskId: number): Promise<TaskStatus> {
+    log.debug('等待任务完成, taskId:', taskId);
     if (!isTauri()) {
-      // 模拟任务完成
       await new Promise(resolve => setTimeout(resolve, 2000));
       return 'Succeeded';
     }
-    return await invoke<TaskStatus>('maa_wait_task', { instanceId, taskId });
+    const status = await invoke<TaskStatus>('maa_wait_task', { instanceId, taskId });
+    log.info('任务完成, taskId:', taskId, '状态:', status);
+    return status;
   },
 
   /**
@@ -226,6 +209,7 @@ export const maaService = {
    * @param instanceId 实例 ID
    */
   async stopTask(instanceId: string): Promise<void> {
+    log.info('停止任务, 实例:', instanceId);
     if (!isTauri()) return;
     return await invoke('maa_stop_task', { instanceId });
   },

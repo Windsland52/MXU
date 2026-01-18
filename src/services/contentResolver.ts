@@ -7,6 +7,10 @@
  * 4. 直接文本
  */
 
+import { loggers } from '@/utils/logger';
+
+const log = loggers.app;
+
 // 检测是否在 Tauri 环境中
 const isTauri = () => {
   return typeof window !== 'undefined' && '__TAURI__' in window;
@@ -136,7 +140,7 @@ export async function resolveContent(
       resolved = await loadFromFile(resolved, basePath);
     }
   } catch (err) {
-    console.warn(`加载内容失败 [${resolved}]:`, err);
+    log.warn(`加载内容失败 [${resolved}]:`, err);
     // 加载失败时返回原始文本
   }
   
