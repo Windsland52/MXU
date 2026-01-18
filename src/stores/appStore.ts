@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { subscribeWithSelector } from 'zustand/middleware';
 import type { ProjectInterface, Instance, SelectedTask, OptionValue, TaskItem, OptionDefinition } from '@/types/interface';
 import type { MxuConfig } from '@/types/config';
-import type { ConnectionStatus, TaskStatus } from '@/types/maa';
+import type { ConnectionStatus, TaskStatus, AdbDevice, Win32Window } from '@/types/maa';
 import { saveConfig } from '@/services/configService';
 
 export type Theme = 'light' | 'dark';
@@ -82,6 +82,12 @@ interface AppState {
   selectedResource: Record<string, string>;
   setSelectedController: (instanceId: string, controllerId: string) => void;
   setSelectedResource: (instanceId: string, resourceId: string) => void;
+
+  // 设备列表缓存（避免切换页面时丢失）
+  cachedAdbDevices: AdbDevice[];
+  cachedWin32Windows: Win32Window[];
+  setCachedAdbDevices: (devices: AdbDevice[]) => void;
+  setCachedWin32Windows: (windows: Win32Window[]) => void;
 }
 
 // 生成唯一 ID
@@ -446,6 +452,12 @@ export const useAppStore = create<AppState>()(
           [instanceId]: resourceId,
         },
       })),
+
+      // 设备列表缓存
+      cachedAdbDevices: [],
+      cachedWin32Windows: [],
+      setCachedAdbDevices: (devices) => set({ cachedAdbDevices: devices }),
+      setCachedWin32Windows: (windows) => set({ cachedWin32Windows: windows }),
     })
   )
 );

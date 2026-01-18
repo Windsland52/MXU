@@ -36,12 +36,16 @@ export function DeviceSelector({ instanceId, controllerDef, onConnectionChange }
   const [isConnected, setIsConnected] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // ADB 设备列表
-  const [adbDevices, setAdbDevices] = useState<AdbDevice[]>([]);
-  const [selectedAdbDevice, setSelectedAdbDevice] = useState<AdbDevice | null>(null);
+  // 从全局 store 获取缓存的设备列表
+  const { 
+    cachedAdbDevices, 
+    cachedWin32Windows, 
+    setCachedAdbDevices, 
+    setCachedWin32Windows 
+  } = useAppStore();
 
-  // Win32 窗口列表
-  const [win32Windows, setWin32Windows] = useState<Win32Window[]>([]);
+  // 选中的设备（本地状态）
+  const [selectedAdbDevice, setSelectedAdbDevice] = useState<AdbDevice | null>(null);
   const [selectedWindow, setSelectedWindow] = useState<Win32Window | null>(null);
 
   const [showDropdown, setShowDropdown] = useState(false);
@@ -153,9 +157,13 @@ export function DeviceSelector({ instanceId, controllerDef, onConnectionChange }
         console.log('[DeviceSelector] Calling maaService.findAdbDevices()...');
         const devices = await maaService.findAdbDevices();
         console.log('[DeviceSelector] findAdbDevices returned:', devices);
-        setAdbDevices(devices);
+        setCachedAdbDevices(devices);
         if (devices.length === 1) {
           setSelectedAdbDevice(devices[0]);
+        }
+        // 搜索完成后自动弹出下拉框
+        if (devices.length > 0) {
+          setShowDropdown(true);
         }
       } else if (controllerType === 'Win32' || controllerType === 'Gamepad') {
         const classRegex = controllerDef.win32?.class_regex || controllerDef.gamepad?.class_regex;
@@ -163,9 +171,13 @@ export function DeviceSelector({ instanceId, controllerDef, onConnectionChange }
         console.log('[DeviceSelector] Calling maaService.findWin32Windows with classRegex:', classRegex, 'windowRegex:', windowRegex);
         const windows = await maaService.findWin32Windows(classRegex, windowRegex);
         console.log('[DeviceSelector] findWin32Windows returned:', windows);
-        setWin32Windows(windows);
+        setCachedWin32Windows(windows);
         if (windows.length === 1) {
           setSelectedWindow(windows[0]);
+        }
+        // 搜索完成后自动弹出下拉框
+        if (windows.length > 0) {
+          setShowDropdown(true);
         }
       }
     } catch (err) {
@@ -258,7 +270,7 @@ export function DeviceSelector({ instanceId, controllerDef, onConnectionChange }
   // 获取设备列表
   const getDeviceList = () => {
     if (controllerType === 'Adb') {
-      return adbDevices.map(device => ({
+      return cachedAdbDevices.map(device => ({
         id: `${device.adb_path}:${device.address}`,
         name: device.name,
         description: device.address,
@@ -270,7 +282,7 @@ export function DeviceSelector({ instanceId, controllerDef, onConnectionChange }
       }));
     }
     if (controllerType === 'Win32' || controllerType === 'Gamepad') {
-      return win32Windows.map(window => ({
+      return cachedWin32Windows.map(window => ({
         id: String(window.handle),
         name: window.window_name || '(无标题)',
         description: window.class_name,
