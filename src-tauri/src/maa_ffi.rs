@@ -524,7 +524,7 @@ extern "C" fn maa_event_callback(
     let message_str = unsafe { from_cstr(message) };
     let details_str = unsafe { from_cstr(details_json) };
 
-    log::debug!(target: "maa_callback", "message: {}, details: {}", message_str, details_str);
+    // log::debug!(target: "maa_callback", "message: {}, details: {}", message_str, details_str);
 
     // 发送事件到前端
     if let Ok(guard) = APP_HANDLE.lock() {

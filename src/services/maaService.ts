@@ -260,9 +260,9 @@ export const maaService = {
    */
   async isRunning(instanceId: string): Promise<boolean> {
     if (!isTauri()) return false;
-    log.debug('检查是否正在运行, 实例:', instanceId);
+    // log.debug('检查是否正在运行, 实例:', instanceId);
     const running = await invoke<boolean>('maa_is_running', { instanceId });
-    log.debug('运行状态:', instanceId, '->', running);
+    // log.debug('运行状态:', instanceId, '->', running);
     return running;
   },
 
@@ -274,7 +274,7 @@ export const maaService = {
   async postScreencap(instanceId: string): Promise<number> {
     if (!isTauri()) return -1;
     const screencapId = await invoke<number>('maa_post_screencap', { instanceId });
-    log.debug('截图请求已发送, screencapId:', screencapId);
+    // log.debug('截图请求已发送, screencapId:', screencapId);
     return screencapId;
   },
 
@@ -353,7 +353,7 @@ export const maaService = {
     
     return await listen<MaaCallbackEvent>('maa-callback', (event) => {
       const { message, details } = event.payload;
-      log.debug('MaaCallback:', message, details);
+    //   log.debug('MaaCallback:', message, details);
       
       try {
         const parsedDetails = JSON.parse(details) as MaaCallbackDetails;

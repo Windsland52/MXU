@@ -889,7 +889,7 @@ pub fn maa_stop_task(state: State<MaaState>, instance_id: String) -> Result<(), 
 /// 检查是否正在运行
 #[tauri::command]
 pub fn maa_is_running(state: State<MaaState>, instance_id: String) -> Result<bool, String> {
-    debug!("maa_is_running called, instance_id: {}", instance_id);
+    // debug!("maa_is_running called, instance_id: {}", instance_id);
 
     let guard = MAA_LIBRARY.lock().map_err(|e| e.to_string())?;
     let lib = guard.as_ref().ok_or("MaaFramework not initialized")?;
@@ -900,7 +900,7 @@ pub fn maa_is_running(state: State<MaaState>, instance_id: String) -> Result<boo
         match instance.tasker {
             Some(t) => t,
             None => {
-                debug!("maa_is_running: no tasker, returning false");
+                // debug!("maa_is_running: no tasker, returning false");
                 return Ok(false);
             }
         }
@@ -908,7 +908,7 @@ pub fn maa_is_running(state: State<MaaState>, instance_id: String) -> Result<boo
 
     let running = unsafe { (lib.maa_tasker_running)(tasker) };
     let result = running != 0;
-    debug!("maa_is_running result: {} (raw: {})", result, running);
+    // debug!("maa_is_running result: {} (raw: {})", result, running);
     Ok(result)
 }
 
