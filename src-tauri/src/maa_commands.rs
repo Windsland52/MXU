@@ -195,23 +195,44 @@ impl Default for MaaState {
 
 /// 获取可执行文件所在目录下的 maafw 子目录
 pub fn get_maafw_dir() -> Result<PathBuf, String> {
-    let exe_path = std::env::current_exe()
-        .map_err(|e| format!("Failed to get executable path: {}", e))?;
-    let exe_dir = exe_path.parent()
-        .ok_or_else(|| "Failed to get executable directory".to_string())?;
-    
-    // macOS app bundle 需要特殊处理：exe 在 Contents/MacOS 下，maafw 应在 Contents/Resources 下
-    #[cfg(target_os = "macos")]
+    // Android 平台：MaaFramework 库由应用打包，位于应用私有目录
+    #[cfg(target_os = "android")]
     {
-        if exe_dir.ends_with("Contents/MacOS") {
-            let resources_dir = exe_dir.parent().unwrap().join("Resources").join("maafw");
-            if resources_dir.exists() {
-                return Ok(resources_dir);
-            }
+        // Android 上需要从应用的 native library 目录加载
+        // Tauri 会将 jniLibs 中的 .so 文件复制到 /data/app/.../lib/<abi>/
+        // 这个路径通常可以通过 System.loadLibrary 的方式自动处理
+        // 但对于 libloading，需要指定完整路径
+        // 使用 /data/data/<package>/lib 或者通过环境变量获取
+        if let Ok(lib_dir) = std::env::var("ANDROID_NATIVE_LIB_DIR") {
+            return Ok(PathBuf::from(lib_dir));
         }
+        // 备用方案：使用应用的 files 目录下的 maafw
+        if let Ok(data_dir) = std::env::var("ANDROID_DATA_DIR") {
+            return Ok(PathBuf::from(data_dir).join("maafw"));
+        }
+        return Err("Cannot determine MaaFramework library path on Android".to_string());
     }
     
-    Ok(exe_dir.join("maafw"))
+    #[cfg(not(target_os = "android"))]
+    {
+        let exe_path = std::env::current_exe()
+            .map_err(|e| format!("Failed to get executable path: {}", e))?;
+        let exe_dir = exe_path.parent()
+            .ok_or_else(|| "Failed to get executable directory".to_string())?;
+        
+        // macOS app bundle 需要特殊处理：exe 在 Contents/MacOS 下，maafw 应在 Contents/Resources 下
+        #[cfg(target_os = "macos")]
+        {
+            if exe_dir.ends_with("Contents/MacOS") {
+                let resources_dir = exe_dir.parent().unwrap().join("Resources").join("maafw");
+                if resources_dir.exists() {
+                    return Ok(resources_dir);
+                }
+            }
+        }
+        
+        Ok(exe_dir.join("maafw"))
+    }
 }
 
 /// 初始化 MaaFramework
@@ -343,72 +364,82 @@ pub fn maa_find_adb_devices() -> Result<Vec<AdbDevice>, String> {
     }
 }
 
-/// 查找 Win32 窗口
+/// 查找 Win32 窗口（仅桌面平台支持）
 #[tauri::command]
 pub fn maa_find_win32_windows(class_regex: Option<String>, window_regex: Option<String>) -> Result<Vec<Win32Window>, String> {
-    let guard = MAA_LIBRARY.lock().map_err(|e| e.to_string())?;
-    let lib = guard.as_ref().ok_or("MaaFramework not initialized")?;
+    // Android/iOS 不支持 Win32 窗口
+    #[cfg(any(target_os = "android", target_os = "ios"))]
+    {
+        let _ = (class_regex, window_regex);
+        return Err("Win32 window detection is not supported on mobile platforms".to_string());
+    }
     
-    unsafe {
-        let list = (lib.maa_toolkit_desktop_window_list_create)();
-        if list.is_null() {
-            return Err("Failed to create window list".to_string());
-        }
+    #[cfg(not(any(target_os = "android", target_os = "ios")))]
+    {
+        let guard = MAA_LIBRARY.lock().map_err(|e| e.to_string())?;
+        let lib = guard.as_ref().ok_or("MaaFramework not initialized")?;
         
-        struct ListGuard<'a> {
-            list: *mut MaaToolkitDesktopWindowList,
-            lib: &'a MaaLibrary,
-        }
-        impl Drop for ListGuard<'_> {
-            fn drop(&mut self) {
-                unsafe { (self.lib.maa_toolkit_desktop_window_list_destroy)(self.list); }
-            }
-        }
-        let _guard = ListGuard { list, lib };
-        
-        let found = (lib.maa_toolkit_desktop_window_find_all)(list);
-        if found == 0 {
-            return Ok(Vec::new());
-        }
-        
-        let size = (lib.maa_toolkit_desktop_window_list_size)(list);
-        let mut windows = Vec::with_capacity(size as usize);
-        
-        // 编译正则表达式
-        let class_re = class_regex.as_ref().and_then(|r| regex::Regex::new(r).ok());
-        let window_re = window_regex.as_ref().and_then(|r| regex::Regex::new(r).ok());
-        
-        for i in 0..size {
-            let window = (lib.maa_toolkit_desktop_window_list_at)(list, i);
-            if window.is_null() {
-                continue;
+        unsafe {
+            let list = (lib.maa_toolkit_desktop_window_list_create)();
+            if list.is_null() {
+                return Err("Failed to create window list".to_string());
             }
             
-            let class_name = from_cstr((lib.maa_toolkit_desktop_window_get_class_name)(window));
-            let window_name = from_cstr((lib.maa_toolkit_desktop_window_get_window_name)(window));
-            
-            // 过滤
-            if let Some(re) = &class_re {
-                if !re.is_match(&class_name) {
-                    continue;
+            struct ListGuard<'a> {
+                list: *mut MaaToolkitDesktopWindowList,
+                lib: &'a MaaLibrary,
+            }
+            impl Drop for ListGuard<'_> {
+                fn drop(&mut self) {
+                    unsafe { (self.lib.maa_toolkit_desktop_window_list_destroy)(self.list); }
                 }
             }
-            if let Some(re) = &window_re {
-                if !re.is_match(&window_name) {
-                    continue;
-                }
+            let _guard = ListGuard { list, lib };
+            
+            let found = (lib.maa_toolkit_desktop_window_find_all)(list);
+            if found == 0 {
+                return Ok(Vec::new());
             }
             
-            let handle = (lib.maa_toolkit_desktop_window_get_handle)(window);
+            let size = (lib.maa_toolkit_desktop_window_list_size)(list);
+            let mut windows = Vec::with_capacity(size as usize);
             
-            windows.push(Win32Window {
-                handle: handle as u64,
-                class_name,
-                window_name,
-            });
+            // 编译正则表达式
+            let class_re = class_regex.as_ref().and_then(|r| regex::Regex::new(r).ok());
+            let window_re = window_regex.as_ref().and_then(|r| regex::Regex::new(r).ok());
+            
+            for i in 0..size {
+                let window = (lib.maa_toolkit_desktop_window_list_at)(list, i);
+                if window.is_null() {
+                    continue;
+                }
+                
+                let class_name = from_cstr((lib.maa_toolkit_desktop_window_get_class_name)(window));
+                let window_name = from_cstr((lib.maa_toolkit_desktop_window_get_window_name)(window));
+                
+                // 过滤
+                if let Some(re) = &class_re {
+                    if !re.is_match(&class_name) {
+                        continue;
+                    }
+                }
+                if let Some(re) = &window_re {
+                    if !re.is_match(&window_name) {
+                        continue;
+                    }
+                }
+                
+                let handle = (lib.maa_toolkit_desktop_window_get_handle)(window);
+                
+                windows.push(Win32Window {
+                    handle: handle as u64,
+                    class_name,
+                    window_name,
+                });
+            }
+            
+            Ok(windows)
         }
-        
-        Ok(windows)
     }
 }
 

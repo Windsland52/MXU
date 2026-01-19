@@ -220,9 +220,74 @@ jobs:
           name: MXU-macos-${{ matrix.arch }}
           path: "install"
 
+  android:
+    needs: meta
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: "pnpm"
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: "temurin"
+          java-version: "17"
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android NDK
+        run: |
+          sdkmanager --install "ndk;27.0.12077973"
+          echo "NDK_HOME=$ANDROID_HOME/ndk/27.0.12077973" >> $GITHUB_ENV
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android,armv7-linux-androideabi,x86_64-linux-android,i686-linux-android
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: "src-tauri -> target"
+
+      - name: Install frontend dependencies
+        run: pnpm install
+
+      - name: Initialize Tauri Android project
+        run: pnpm tauri android init
+
+      - name: Build Android APK
+        run: pnpm tauri android build --apk
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Prepare artifacts
+        run: |
+          mkdir -p install
+          find src-tauri/gen/android -name "*.apk" -exec cp {} install/ \; || true
+          ls -la install/
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: MXU-android
+          path: "install"
+
   release:
     if: ${{ needs.meta.outputs.is-release == 'true' }}
-    needs: [meta, windows, linux, macos]
+    needs: [meta, windows, linux, macos, android]
     runs-on: ubuntu-latest
     permissions:
       contents: write

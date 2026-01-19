@@ -1,15 +1,10 @@
 {
-  "$schema": "../gen/schemas/desktop-schema.json",
-  "identifier": "default",
-  "description": "Capability for the main window (desktop platforms)",
-  "platforms": ["linux", "macOS", "windows"],
-  "windows": ["main"],
+  "$schema": "../gen/schemas/mobile-schema.json",
+  "identifier": "mobile",
+  "description": "Capability for mobile platforms",
+  "platforms": ["android", "iOS"],
   "permissions": [
     "core:default",
-    "core:window:allow-set-title",
-    "core:window:allow-set-size",
-    "core:window:allow-inner-size",
-    "core:window:allow-scale-factor",
     "core:event:allow-listen",
     "opener:default",
     {
@@ -45,7 +40,6 @@
     "fs:allow-appdata-read-recursive",
     "fs:allow-appdata-write-recursive",
     "dialog:default",
-    "dialog:allow-open",
     "core:path:default",
     {
       "identifier": "http:default",

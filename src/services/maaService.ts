@@ -13,6 +13,7 @@ import type {
   TaskConfig,
 } from '@/types/maa';
 import { loggers } from '@/utils/logger';
+import { supportsWin32Controller } from '@/utils/platform';
 
 const log = loggers.maa;
 
@@ -91,6 +92,12 @@ export const maaService = {
    * @param windowRegex 窗口标题正则表达式（可选）
    */
   async findWin32Windows(classRegex?: string, windowRegex?: string): Promise<Win32Window[]> {
+    // Win32 窗口检测仅在 Windows 平台可用
+    if (!supportsWin32Controller()) {
+      log.debug('当前平台不支持 Win32 窗口检测');
+      return [];
+    }
+    
     log.debug('搜索 Win32 窗口, classRegex:', classRegex, 'windowRegex:', windowRegex);
     const windows = await invoke<Win32Window[]>('maa_find_win32_windows', {
       classRegex: classRegex || null,

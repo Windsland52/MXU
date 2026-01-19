@@ -4,7 +4,7 @@
 //! 不同平台的动态库文件：
 //! - Windows: MaaFramework.dll, MaaToolkit.dll
 //! - macOS: libMaaFramework.dylib, libMaaToolkit.dylib
-//! - Linux: libMaaFramework.so, libMaaToolkit.so
+//! - Linux/Android: libMaaFramework.so, libMaaToolkit.so
 
 // 这是纯 FFI 绑定模块：符号/常量/字段会随着上层功能逐步启用。
 // 若严格开启 dead_code，会在开发期产生大量无意义 warning，反而干扰排查真正问题。
@@ -284,21 +284,21 @@ impl MaaLibrary {
             let framework_path = lib_dir.join("MaaFramework.dll");
             #[cfg(target_os = "macos")]
             let framework_path = lib_dir.join("libMaaFramework.dylib");
-            #[cfg(target_os = "linux")]
+            #[cfg(any(target_os = "linux", target_os = "android"))]
             let framework_path = lib_dir.join("libMaaFramework.so");
             
             #[cfg(windows)]
             let toolkit_path = lib_dir.join("MaaToolkit.dll");
             #[cfg(target_os = "macos")]
             let toolkit_path = lib_dir.join("libMaaToolkit.dylib");
-            #[cfg(target_os = "linux")]
+            #[cfg(any(target_os = "linux", target_os = "android"))]
             let toolkit_path = lib_dir.join("libMaaToolkit.so");
             
             #[cfg(windows)]
             let agent_client_path = lib_dir.join("MaaAgentClient.dll");
             #[cfg(target_os = "macos")]
             let agent_client_path = lib_dir.join("libMaaAgentClient.dylib");
-            #[cfg(target_os = "linux")]
+            #[cfg(any(target_os = "linux", target_os = "android"))]
             let agent_client_path = lib_dir.join("libMaaAgentClient.so");
             
             println!("[MaaFFI] Loading MaaFramework from {:?}...", framework_path);
