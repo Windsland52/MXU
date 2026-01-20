@@ -27,13 +27,13 @@ use crate::maa_ffi::{
 // 辅助函数
 // ============================================================================
 
-/// 获取 exe 所在目录下的 logs 子目录
+/// 获取 exe 所在目录下的 debug/logs 子目录
 fn get_logs_dir() -> PathBuf {
     let exe_path = std::env::current_exe().unwrap_or_default();
     let exe_dir = exe_path
         .parent()
         .unwrap_or(std::path::Path::new("."));
-    exe_dir.join("logs")
+    exe_dir.join("debug")
 }
 
 // ============================================================================
@@ -1275,7 +1275,7 @@ pub async fn maa_start_tasks(
 
         info!("Agent child process started, pid: {:?}", child.id());
 
-        // 创建 agent 日志文件（写入到 exe/logs/mxu-agent.log）
+        // 创建 agent 日志文件（写入到 exe/debug/logs/mxu-agent.log）
         let agent_log_file = get_logs_dir().join("mxu-agent.log");
         let log_file = Arc::new(Mutex::new(
             OpenOptions::new()

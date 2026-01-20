@@ -27,7 +27,7 @@ async function initFileLogger(): Promise<void> {
   try {
     const { invoke } = await import('@tauri-apps/api/core');
     const exeDir = await invoke<string>('get_exe_dir');
-    logsDir = `${exeDir.replace(/\\/g, '/').replace(/\/$/, '')}/logs`;
+    logsDir = `${exeDir.replace(/\\/g, '/').replace(/\/$/, '')}/debug`;
     
     const { mkdir, exists } = await import('@tauri-apps/plugin-fs');
     if (!await exists(logsDir)) {

@@ -12,7 +12,7 @@
 
 use std::ffi::{CStr, CString};
 use std::os::raw::{c_char, c_void};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 
 use libloading::Library;
@@ -456,8 +456,12 @@ pub static MAA_LIBRARY: Lazy<Mutex<Option<MaaLibrary>>> = Lazy::new(|| Mutex::ne
 pub fn init_maa_library(lib_dir: &Path) -> Result<(), String> {
     let lib = MaaLibrary::load(lib_dir)?;
 
-    // 初始化 Toolkit 配置，user_path 使用 maafw 目录的绝对路径
-    let user_path_str = lib_dir.to_string_lossy();
+    // 初始化 Toolkit 配置，user_path 指向 exe 目录，避免 MaaFramework 日志落在 maafw 目录
+    let exe_dir = std::env::current_exe()
+        .ok()
+        .and_then(|path| path.parent().map(|p| p.to_path_buf()))
+        .unwrap_or_else(|| PathBuf::from("."));
+    let user_path_str = exe_dir.to_string_lossy();
     let user_path = to_cstring(&user_path_str);
     let default_json = to_cstring("{}");
     debug!(

@@ -7,16 +7,16 @@ use std::sync::Arc;
 use tauri::Manager;
 use tauri_plugin_log::{Target, TargetKind, TimezoneStrategy};
 
-/// 获取 exe 所在目录下的 logs 子目录
+/// 获取 exe 所在目录下的 debug/logs 子目录
 fn get_logs_dir() -> PathBuf {
     let exe_path = std::env::current_exe().unwrap_or_default();
     let exe_dir = exe_path.parent().unwrap_or(std::path::Path::new("."));
-    exe_dir.join("logs")
+    exe_dir.join("debug")
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    // 日志目录：exe 目录/logs（与前端日志同目录）
+    // 日志目录：exe 目录/debug/logs（与前端日志同目录）
     let logs_dir = get_logs_dir();
 
     // 确保日志目录存在
@@ -32,7 +32,7 @@ pub fn run() {
                 .targets([
                     // 输出到控制台
                     Target::new(TargetKind::Stdout),
-                    // 输出到 exe/logs 目录（与前端日志同目录，文件名用 mxu-tauri 区分）
+                    // 输出到 exe/debug/logs 目录（与前端日志同目录，文件名用 mxu-tauri 区分）
                     Target::new(TargetKind::Folder {
                         path: logs_dir,
                         file_name: Some("mxu-tauri".into()),
