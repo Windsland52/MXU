@@ -29,6 +29,107 @@ import { parseWin32ScreencapMethod, parseWin32InputMethod } from '@/types/maa';
 const isWindows = navigator.platform.toLowerCase().includes('win');
 const isMacOS = navigator.platform.toLowerCase().includes('mac');
 
+// ============================================================================
+// 全局回调结果缓存（解决回调早于 post 返回的竞态问题）
+// ============================================================================
+type CallbackResult = 'succeeded' | 'failed';
+
+// 控制器连接结果缓存
+const ctrlCallbackCache = new Map<number, CallbackResult>();
+// 资源加载结果缓存
+const resCallbackCache = new Map<number, CallbackResult>();
+
+// 缓存清理超时时间（30秒）
+const CACHE_CLEANUP_TIMEOUT = 30000;
+
+// 全局监听器是否已启动
+let globalListenerStarted = false;
+
+// 启动全局回调监听器
+function startGlobalCallbackListener() {
+  if (globalListenerStarted) return;
+  globalListenerStarted = true;
+  
+  maaService.onCallback((message, details) => {
+    // 缓存控制器连接结果
+    if (details.ctrl_id !== undefined) {
+      if (message === 'Controller.Action.Succeeded') {
+        ctrlCallbackCache.set(details.ctrl_id, 'succeeded');
+        // 30秒后自动清理
+        setTimeout(() => ctrlCallbackCache.delete(details.ctrl_id!), CACHE_CLEANUP_TIMEOUT);
+      } else if (message === 'Controller.Action.Failed') {
+        ctrlCallbackCache.set(details.ctrl_id, 'failed');
+        setTimeout(() => ctrlCallbackCache.delete(details.ctrl_id!), CACHE_CLEANUP_TIMEOUT);
+      }
+    }
+    
+    // 缓存资源加载结果
+    if (details.res_id !== undefined) {
+      if (message === 'Resource.Loading.Succeeded') {
+        resCallbackCache.set(details.res_id, 'succeeded');
+        setTimeout(() => resCallbackCache.delete(details.res_id!), CACHE_CLEANUP_TIMEOUT);
+      } else if (message === 'Resource.Loading.Failed') {
+        resCallbackCache.set(details.res_id, 'failed');
+        setTimeout(() => resCallbackCache.delete(details.res_id!), CACHE_CLEANUP_TIMEOUT);
+      }
+    }
+  });
+}
+
+// 等待控制器连接结果（先查缓存，没有则等待回调）
+async function waitForCtrlResult(ctrlId: number, timeoutMs: number = 30000): Promise<CallbackResult> {
+  // 先检查缓存
+  const cached = ctrlCallbackCache.get(ctrlId);
+  if (cached) {
+    ctrlCallbackCache.delete(ctrlId);
+    return cached;
+  }
+  
+  // 缓存中没有，等待回调
+  return new Promise((resolve) => {
+    const startTime = Date.now();
+    
+    const checkInterval = setInterval(() => {
+      const result = ctrlCallbackCache.get(ctrlId);
+      if (result) {
+        clearInterval(checkInterval);
+        ctrlCallbackCache.delete(ctrlId);
+        resolve(result);
+      } else if (Date.now() - startTime > timeoutMs) {
+        clearInterval(checkInterval);
+        resolve('failed'); // 超时视为失败
+      }
+    }, 50); // 每50ms检查一次
+  });
+}
+
+// 等待资源加载结果（先查缓存，没有则等待回调）
+async function waitForResResult(resId: number, timeoutMs: number = 30000): Promise<CallbackResult> {
+  // 先检查缓存
+  const cached = resCallbackCache.get(resId);
+  if (cached) {
+    resCallbackCache.delete(resId);
+    return cached;
+  }
+  
+  // 缓存中没有，等待回调
+  return new Promise((resolve) => {
+    const startTime = Date.now();
+    
+    const checkInterval = setInterval(() => {
+      const result = resCallbackCache.get(resId);
+      if (result) {
+        clearInterval(checkInterval);
+        resCallbackCache.delete(resId);
+        resolve(result);
+      } else if (Date.now() - startTime > timeoutMs) {
+        clearInterval(checkInterval);
+        resolve('failed'); // 超时视为失败
+      }
+    }, 50);
+  });
+}
+
 export function ConnectionPanel() {
   const { t } = useTranslation();
   const {
@@ -86,9 +187,6 @@ export function ConnectionPanel() {
   // 记录已加载的资源名称，避免重复加载
   const lastLoadedResourceRef = useRef<string | null>(null);
   
-  // 等待中的操作 ID（用于回调匹配）
-  const [pendingCtrlId, setPendingCtrlId] = useState<number | null>(null);
-  const [pendingResIds, setPendingResIds] = useState<Set<number>>(new Set());
   
   // 下拉框触发按钮和菜单的 ref
   const deviceDropdownRef = useRef<HTMLButtonElement>(null);
@@ -122,6 +220,11 @@ export function ConnectionPanel() {
 
   const langKey = language === 'zh-CN' ? 'zh_cn' : 'en_us';
   const translations = interfaceTranslations[langKey];
+  
+  // 启动全局回调监听器（只启动一次）
+  useEffect(() => {
+    startGlobalCallbackListener();
+  }, []);
   
   // 点击外部关闭下拉框
   useEffect(() => {
@@ -262,62 +365,6 @@ export function ConnectionPanel() {
       lastLoadedResourceRef.current = null;
     }
   }, [storedResourceLoaded, isLoadingResource, currentResourceName]);
-  
-  // 监听 MaaFramework 回调事件，处理连接和资源加载完成
-  useEffect(() => {
-    // 没有等待中的操作，不需要监听
-    if (pendingCtrlId === null && pendingResIds.size === 0) return;
-    
-    let unlisten: (() => void) | null = null;
-    
-    maaService.onCallback((message, details) => {
-      // 处理控制器连接回调
-      if (pendingCtrlId !== null && details.ctrl_id === pendingCtrlId) {
-        if (message === 'Controller.Action.Succeeded') {
-          setIsConnected(true);
-          setInstanceConnectionStatus(instanceId, 'Connected');
-          setIsConnecting(false);
-          setPendingCtrlId(null);
-        } else if (message === 'Controller.Action.Failed') {
-          setDeviceError(t('controller.connectionFailed'));
-          setIsConnected(false);
-          setInstanceConnectionStatus(instanceId, 'Disconnected');
-          setIsConnecting(false);
-          setPendingCtrlId(null);
-        }
-      }
-      
-      // 处理资源加载回调
-      if (pendingResIds.size > 0 && details.res_id !== undefined) {
-        if (message === 'Resource.Loading.Succeeded') {
-          setPendingResIds(prev => {
-            const next = new Set(prev);
-            next.delete(details.res_id!);
-            // 所有资源都加载完成
-            if (next.size === 0) {
-              setIsResourceLoaded(true);
-              setInstanceResourceLoaded(instanceId, true);
-              setIsLoadingResource(false);
-            }
-            return next;
-          });
-        } else if (message === 'Resource.Loading.Failed') {
-          setResourceError(t('resource.loadFailed'));
-          setIsResourceLoaded(false);
-          setInstanceResourceLoaded(instanceId, false);
-          setIsLoadingResource(false);
-          setPendingResIds(new Set());
-          lastLoadedResourceRef.current = null;
-        }
-      }
-    }).then(fn => {
-      unlisten = fn;
-    });
-    
-    return () => {
-      if (unlisten) unlisten();
-    };
-  }, [pendingCtrlId, pendingResIds, instanceId, setInstanceConnectionStatus, setInstanceResourceLoaded, t]);
 
   // 判断是否需要搜索设备（PlayCover 不需要搜索）
   const needsDeviceSearch = controllerType === 'Adb' || controllerType === 'Win32' || controllerType === 'Gamepad';
@@ -417,6 +464,31 @@ export function ConnectionPanel() {
     }
   };
 
+  // 连接控制器的内部实现（使用缓存机制解决竞态问题）
+  const connectControllerInternal = async (config: ControllerConfig, deviceName: string) => {
+    const agentPath = `${basePath}/MaaAgentBinary`;
+    const ctrlId = await maaService.connectController(instanceId, config, agentPath);
+    
+    // 注册 ctrl_id 与设备名的映射，用于日志显示
+    if (deviceName) {
+      registerCtrlIdName(ctrlId, deviceName);
+    }
+    
+    // 等待连接结果（先查缓存，没有则轮询等待）
+    const result = await waitForCtrlResult(ctrlId);
+    
+    if (result === 'succeeded') {
+      setIsConnected(true);
+      setInstanceConnectionStatus(instanceId, 'Connected');
+      setIsConnecting(false);
+    } else {
+      setDeviceError(t('controller.connectionFailed'));
+      setIsConnected(false);
+      setInstanceConnectionStatus(instanceId, 'Disconnected');
+      setIsConnecting(false);
+    }
+  };
+
   // 连接设备
   const handleConnect = async () => {
     if (!currentController) return;
@@ -433,6 +505,7 @@ export function ConnectionPanel() {
       await maaService.createInstance(instanceId).catch(() => {});
 
       let config: ControllerConfig;
+      let deviceName = '';
 
       if (controllerType === 'Adb' && selectedAdbDevice) {
         config = {
@@ -443,6 +516,7 @@ export function ConnectionPanel() {
           input_methods: selectedAdbDevice.input_methods,
           config: selectedAdbDevice.config,
         };
+        deviceName = selectedAdbDevice.name || selectedAdbDevice.address;
       } else if (controllerType === 'Win32' && selectedWindow) {
         config = {
           type: 'Win32',
@@ -451,6 +525,7 @@ export function ConnectionPanel() {
           mouse_method: parseWin32InputMethod(currentController.win32?.mouse || ''),
           keyboard_method: parseWin32InputMethod(currentController.win32?.keyboard || ''),
         };
+        deviceName = selectedWindow.window_name || selectedWindow.class_name;
       } else if (controllerType === 'PlayCover') {
         // 保存 PlayCover 地址到实例配置
         setInstanceSavedDevice(instanceId, { playcoverAddress });
@@ -458,33 +533,18 @@ export function ConnectionPanel() {
           type: 'PlayCover',
           address: playcoverAddress,
         };
+        deviceName = playcoverAddress;
       } else if (controllerType === 'Gamepad' && selectedWindow) {
         config = {
           type: 'Gamepad',
           handle: selectedWindow.handle,
         };
+        deviceName = selectedWindow.window_name || selectedWindow.class_name;
       } else {
         throw new Error(t('controller.selectDevice'));
       }
 
-      const agentPath = `${basePath}/MaaAgentBinary`;
-      const ctrlId = await maaService.connectController(instanceId, config, agentPath);
-      
-      // 注册 ctrl_id 与设备名的映射，用于日志显示
-      let deviceName = '';
-      if (controllerType === 'Adb' && selectedAdbDevice) {
-        deviceName = selectedAdbDevice.name || selectedAdbDevice.address;
-      } else if ((controllerType === 'Win32' || controllerType === 'Gamepad') && selectedWindow) {
-        deviceName = selectedWindow.window_name || selectedWindow.class_name;
-      } else if (controllerType === 'PlayCover') {
-        deviceName = playcoverAddress;
-      }
-      if (deviceName) {
-        registerCtrlIdName(ctrlId, deviceName);
-      }
-      
-      // 记录等待中的 ctrl_id，后续由回调处理完成状态
-      setPendingCtrlId(ctrlId);
+      await connectControllerInternal(config, deviceName);
     } catch (err) {
       setDeviceError(err instanceof Error ? err.message : t('controller.connectionFailed'));
       setIsConnected(false);
@@ -493,7 +553,7 @@ export function ConnectionPanel() {
     }
   };
 
-  // 加载资源
+  // 加载资源（使用缓存机制解决竞态问题）
   const loadResourceInternal = async (resource: ResourceItem) => {
     setIsLoadingResource(true);
     setResourceError(null);
@@ -505,6 +565,7 @@ export function ConnectionPanel() {
         const cleanPath = p.replace(/^\.\//, '').replace(/^\.\\/, '');
         return `${basePath}/${cleanPath}`;
       });
+      
       const resIds = await maaService.loadResource(instanceId, resourcePaths);
       
       // 注册 res_id 与资源名的映射，用于日志显示
@@ -513,11 +574,33 @@ export function ConnectionPanel() {
         registerResIdName(resId, resourceDisplayName);
       });
       
+      // 如果没有有效的 resIds，直接标记为加载失败
+      if (resIds.length === 0) {
+        setResourceError(t('resource.loadFailed'));
+        setIsLoadingResource(false);
+        return;
+      }
+      
       // 记录已加载的资源名称
       lastLoadedResourceRef.current = resource.name;
       
-      // 记录等待中的 res_ids，后续由回调处理完成状态
-      setPendingResIds(new Set(resIds));
+      // 等待所有资源加载完成（先查缓存，没有则轮询等待）
+      const results = await Promise.all(resIds.map(resId => waitForResResult(resId)));
+      
+      // 检查是否有失败的
+      const hasFailed = results.some(r => r === 'failed');
+      
+      if (hasFailed) {
+        setResourceError(t('resource.loadFailed'));
+        setIsResourceLoaded(false);
+        setInstanceResourceLoaded(instanceId, false);
+        setIsLoadingResource(false);
+        lastLoadedResourceRef.current = null;
+      } else {
+        setIsResourceLoaded(true);
+        setInstanceResourceLoaded(instanceId, true);
+        setIsLoadingResource(false);
+      }
     } catch (err) {
       setResourceError(err instanceof Error ? err.message : t('resource.loadFailed'));
       setIsResourceLoaded(false);
@@ -648,14 +731,7 @@ export function ConnectionPanel() {
         config: device.config,
       };
       
-      const agentPath = `${basePath}/MaaAgentBinary`;
-      const ctrlId = await maaService.connectController(instanceId, config, agentPath);
-      
-      // 注册 ctrl_id 与设备名的映射
-      registerCtrlIdName(ctrlId, device.name || device.address);
-      
-      // 记录等待中的 ctrl_id，后续由回调处理完成状态
-      setPendingCtrlId(ctrlId);
+      await connectControllerInternal(config, device.name || device.address);
     } catch (err) {
       setDeviceError(err instanceof Error ? err.message : t('controller.connectionFailed'));
       setIsConnected(false);
@@ -706,14 +782,7 @@ export function ConnectionPanel() {
         };
       }
       
-      const agentPath = `${basePath}/MaaAgentBinary`;
-      const ctrlId = await maaService.connectController(instanceId, config, agentPath);
-      
-      // 注册 ctrl_id 与设备名的映射
-      registerCtrlIdName(ctrlId, win.window_name || win.class_name);
-      
-      // 记录等待中的 ctrl_id，后续由回调处理完成状态
-      setPendingCtrlId(ctrlId);
+      await connectControllerInternal(config, win.window_name || win.class_name);
     } catch (err) {
       setDeviceError(err instanceof Error ? err.message : t('controller.connectionFailed'));
       setIsConnected(false);
