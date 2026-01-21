@@ -458,4 +458,12 @@ export default {
     // Common
     openFolder: 'Open Containing Folder',
   },
+
+  // Version warning
+  versionWarning: {
+    title: 'MaaFramework Version Too Low',
+    message: 'Current MaaFramework version ({{current}}) is lower than the minimum supported version ({{minimum}}). Some features may not work properly.',
+    suggestion: 'Please contact the project developer to update MaaFramework.',
+    understand: 'I Understand',
+  },
 };

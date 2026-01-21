@@ -458,4 +458,12 @@ export default {
     // 通用
     openFolder: '打开所在文件夹',
   },
+
+  // 版本警告
+  versionWarning: {
+    title: 'MaaFramework 版本过低',
+    message: '当前 MaaFramework 版本 ({{current}}) 低于最低支持版本 ({{minimum}})，部分功能可能无法正常工作。',
+    suggestion: '请联系项目开发者更新 MaaFramework 版本。',
+    understand: '我已了解',
+  },
 };
