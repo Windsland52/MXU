@@ -27,6 +27,35 @@ use crate::maa_ffi::{
 // 辅助函数
 // ============================================================================
 
+/// 规范化路径：移除冗余的 `.`、处理 `..`、统一分隔符
+/// 使用 Path::components() 解析，不需要路径实际存在
+fn normalize_path(path: &str) -> PathBuf {
+    use std::path::{Component, Path};
+    
+    let path = Path::new(path);
+    let mut components = Vec::new();
+    
+    for component in path.components() {
+        match component {
+            // 跳过当前目录标记 "."
+            Component::CurDir => {}
+            // 处理父目录 ".."：如果栈顶是普通目录则弹出，否则保留
+            Component::ParentDir => {
+                if matches!(components.last(), Some(Component::Normal(_))) {
+                    components.pop();
+                } else {
+                    components.push(component);
+                }
+            }
+            // 保留其他组件（Prefix、RootDir、Normal）
+            _ => components.push(component),
+        }
+    }
+    
+    // 重建路径
+    components.iter().collect()
+}
+
 /// 获取 exe 所在目录下的 debug/logs 子目录
 fn get_logs_dir() -> PathBuf {
     let exe_path = std::env::current_exe().unwrap_or_default();
@@ -786,12 +815,14 @@ pub fn maa_load_resource(
     // 加载资源（不等待，通过回调通知完成）
     let mut res_ids = Vec::new();
     for path in &paths {
-        let path_c = to_cstring(path);
+        let normalized = normalize_path(path);
+        let normalized_str = normalized.to_string_lossy();
+        let path_c = to_cstring(&normalized_str);
         let res_id = unsafe { (lib.maa_resource_post_bundle)(resource, path_c.as_ptr()) };
-        info!("Posted resource bundle: {} -> id: {}", path, res_id);
+        info!("Posted resource bundle: {} -> id: {}", normalized_str, res_id);
 
         if res_id == MAA_INVALID_ID {
-            warn!("Failed to post resource bundle: {}", path);
+            warn!("Failed to post resource bundle: {}", normalized_str);
             continue;
         }
         
@@ -1245,9 +1276,9 @@ pub async fn maa_start_tasks(
             agent.child_exec, args, cwd
         );
 
-        // 将相对路径转换为绝对路径（Windows 的 Command 不能正确处理 Unix 风格相对路径）
-        let exec_path = std::path::Path::new(&cwd).join(&agent.child_exec);
-        let exec_path = exec_path.canonicalize().unwrap_or(exec_path);
+        // 拼接并规范化路径（处理 ./ 等冗余组件，不依赖路径存在）
+        let joined = std::path::Path::new(&cwd).join(&agent.child_exec);
+        let exec_path = normalize_path(&joined.to_string_lossy());
         debug!(
             "Resolved executable path: {:?}, exists: {}",
             exec_path,
@@ -1522,7 +1553,7 @@ fn get_exe_directory() -> Result<PathBuf, String> {
 #[tauri::command]
 pub fn read_local_file(filename: String) -> Result<String, String> {
     let exe_dir = get_exe_directory()?;
-    let file_path = exe_dir.join(&filename);
+    let file_path = normalize_path(&exe_dir.join(&filename).to_string_lossy());
     debug!("Reading local file: {:?}", file_path);
 
     std::fs::read_to_string(&file_path)
@@ -1535,7 +1566,7 @@ pub fn read_local_file_base64(filename: String) -> Result<String, String> {
     use base64::{engine::general_purpose::STANDARD, Engine as _};
 
     let exe_dir = get_exe_directory()?;
-    let file_path = exe_dir.join(&filename);
+    let file_path = normalize_path(&exe_dir.join(&filename).to_string_lossy());
     debug!("Reading local file (base64): {:?}", file_path);
 
     let data = std::fs::read(&file_path)
@@ -1548,7 +1579,7 @@ pub fn read_local_file_base64(filename: String) -> Result<String, String> {
 #[tauri::command]
 pub fn local_file_exists(filename: String) -> Result<bool, String> {
     let exe_dir = get_exe_directory()?;
-    let file_path = exe_dir.join(&filename);
+    let file_path = normalize_path(&exe_dir.join(&filename).to_string_lossy());
     Ok(file_path.exists())
 }
 
