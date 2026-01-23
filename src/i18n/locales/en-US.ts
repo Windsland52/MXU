@@ -106,6 +106,9 @@ export default {
       succeeded: 'Completed',
       failed: 'Failed',
     },
+    // Task compatibility
+    incompatibleController: 'Not supported by current controller',
+    incompatibleResource: 'Not supported by current resource',
   },
 
   // Options

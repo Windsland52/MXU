@@ -105,6 +105,9 @@ export default {
       succeeded: '已完成',
       failed: '执行失败',
     },
+    // 任务兼容性
+    incompatibleController: '不支持当前控制器',
+    incompatibleResource: '不支持当前资源',
   },
 
   // 选项

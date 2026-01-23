@@ -173,6 +173,38 @@ export function TaskItem({ instanceId, task }: TaskItemProps) {
   const instance = instances.find((i) => i.id === instanceId);
   const isInstanceRunning = instance?.isRunning || false;
 
+  // 获取任务定义
+  const taskDef = projectInterface?.task.find((t) => t.name === task.taskName);
+
+  // 检查任务是否与当前控制器/资源兼容
+  const currentControllerName = instance?.controllerName;
+  const currentResourceName = instance?.resourceName;
+
+  const isControllerIncompatible = useMemo(() => {
+    if (!taskDef?.controller || taskDef.controller.length === 0) return false;
+    return !currentControllerName || !taskDef.controller.includes(currentControllerName);
+  }, [taskDef?.controller, currentControllerName]);
+
+  const isResourceIncompatible = useMemo(() => {
+    if (!taskDef?.resource || taskDef.resource.length === 0) return false;
+    return !currentResourceName || !taskDef.resource.includes(currentResourceName);
+  }, [taskDef?.resource, currentResourceName]);
+
+  const isIncompatible = isControllerIncompatible || isResourceIncompatible;
+
+  // 生成不兼容提示信息
+  const incompatibleReason = useMemo(() => {
+    if (!isIncompatible) return '';
+    const reasons: string[] = [];
+    if (isControllerIncompatible) {
+      reasons.push(t('taskItem.incompatibleController'));
+    }
+    if (isResourceIncompatible) {
+      reasons.push(t('taskItem.incompatibleResource'));
+    }
+    return reasons.join(', ');
+  }, [isIncompatible, isControllerIncompatible, isResourceIncompatible, t]);
+
   // 紧凑模式：实例运行时，未启用的任务显示为紧凑样式
   const isCompact = isInstanceRunning && !task.enabled;
 
@@ -236,7 +268,6 @@ export function TaskItem({ instanceId, task }: TaskItemProps) {
 
   const { state: menuState, show: showMenu, hide: hideMenu } = useContextMenu();
 
-  const taskDef = projectInterface?.task.find((t) => t.name === task.taskName);
   const langKey = getInterfaceLangKey(language);
 
   // 获取翻译表
@@ -597,20 +628,25 @@ export function TaskItem({ instanceId, task }: TaskItemProps) {
           <GripVertical className="w-4 h-4 text-text-muted" />
         </div>
 
-        {/* 启用复选框 - 运行时禁用 */}
+        {/* 启用复选框 - 运行时或不兼容时禁用 */}
         <label
           className={clsx(
-            'flex items-center',
-            isInstanceRunning ? 'cursor-not-allowed opacity-50' : 'cursor-pointer',
+            'flex items-center relative',
+            isInstanceRunning || isIncompatible ? 'cursor-not-allowed opacity-50' : 'cursor-pointer',
           )}
+          title={isIncompatible ? incompatibleReason : undefined}
         >
           <input
             type="checkbox"
             checked={task.enabled}
-            onChange={() => toggleTaskEnabled(instanceId, task.id)}
-            disabled={isInstanceRunning}
+            onChange={() => !isIncompatible && toggleTaskEnabled(instanceId, task.id)}
+            disabled={isInstanceRunning || isIncompatible}
             className="w-4 h-4 rounded border-border-strong accent-accent disabled:cursor-not-allowed"
           />
+          {/* 不兼容警告图标 */}
+          {isIncompatible && (
+            <AlertCircle className="w-3.5 h-3.5 text-warning absolute -top-1 -right-1" />
+          )}
         </label>
 
         {/* 任务名称 + 展开区域容器 */}
@@ -680,17 +716,26 @@ export function TaskItem({ instanceId, task }: TaskItemProps) {
                   className="flex-1 flex items-center self-stretch min-h-[28px] cursor-pointer"
                   title={task.expanded ? t('taskItem.collapse') : t('taskItem.expand')}
                 >
-                  {/* 选项预览标签 - 未展开且有选项时显示 */}
-                  {showOptionPreview && !task.expanded && optionPreviews.length > 0 && (
+                  {/* 选项预览标签 - 未展开时显示：不兼容时显示警告，否则显示选项预览 */}
+                  {!task.expanded && (
                     <div className="flex-1 flex items-center gap-1.5 mx-2 overflow-hidden">
-                      {optionPreviews.map((preview) => (
-                        <OptionPreviewTag
-                          key={preview.key}
-                          label={preview.label}
-                          value={preview.value}
-                          type={preview.type}
-                        />
-                      ))}
+                      {isIncompatible ? (
+                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 text-xs text-warning">
+                          <AlertCircle className="w-3 h-3" />
+                          {incompatibleReason}
+                        </span>
+                      ) : (
+                        showOptionPreview &&
+                        optionPreviews.length > 0 &&
+                        optionPreviews.map((preview) => (
+                          <OptionPreviewTag
+                            key={preview.key}
+                            label={preview.label}
+                            value={preview.value}
+                            type={preview.type}
+                          />
+                        ))
+                      )}
                     </div>
                   )}
                   {/* 展开/折叠箭头 */}
@@ -746,6 +791,13 @@ export function TaskItem({ instanceId, task }: TaskItemProps) {
               {/* 选项列表 - 仅在有选项时显示 */}
               {hasOptions && (
                 <div className="space-y-3">
+                  {/* 不兼容提示 */}
+                  {isIncompatible && (
+                    <div className="flex items-center gap-1.5 px-2 py-1.5 rounded-md bg-warning/10 text-warning text-xs">
+                      <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
+                      <span>{incompatibleReason}</span>
+                    </div>
+                  )}
                   {taskDef.option?.map((optionKey) => (
                     <OptionEditor
                       key={optionKey}
@@ -753,7 +805,7 @@ export function TaskItem({ instanceId, task }: TaskItemProps) {
                       taskId={task.id}
                       optionKey={optionKey}
                       value={task.optionValues[optionKey]}
-                      disabled={!canEditOptions}
+                      disabled={!canEditOptions || isIncompatible}
                     />
                   ))}
                 </div>

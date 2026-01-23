@@ -1,7 +1,7 @@
 import { useState, useMemo, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
-import { Search, Plus, Sparkles, Loader2 } from 'lucide-react';
+import { Search, Plus, Sparkles, Loader2, AlertCircle } from 'lucide-react';
 import { useAppStore } from '@/stores/appStore';
 import { maaService } from '@/services/maaService';
 import { useResolvedContent } from '@/services/contentResolver';
@@ -20,6 +20,8 @@ function TaskButton({
   label,
   langKey,
   basePath,
+  disabled,
+  incompatibleReason,
   onClick,
 }: {
   task: TaskItem;
@@ -28,6 +30,8 @@ function TaskButton({
   label: string;
   langKey: string;
   basePath: string;
+  disabled?: boolean;
+  incompatibleReason?: string;
   onClick: () => void;
 }) {
   const { t } = useTranslation();
@@ -47,6 +51,8 @@ function TaskButton({
   );
 
   const hasDescription = !!resolvedDescription.html || resolvedDescription.loading;
+  // 有描述或有不兼容原因时都显示 tooltip
+  const shouldShowTooltip = hasDescription || (disabled && incompatibleReason);
 
   // 计算 tooltip 位置
   useEffect(() => {
@@ -62,32 +68,42 @@ function TaskButton({
   return (
     <button
       ref={buttonRef}
-      onClick={onClick}
-      onMouseEnter={() => hasDescription && setShowTooltip(true)}
+      onClick={() => !disabled && onClick()}
+      onMouseEnter={() => shouldShowTooltip && setShowTooltip(true)}
       onMouseLeave={() => setShowTooltip(false)}
       className={clsx(
         'relative flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors text-left',
-        'bg-bg-secondary hover:bg-bg-hover text-text-primary border border-border hover:border-accent',
+        disabled
+          ? 'bg-bg-secondary/50 text-text-muted border border-border/50 cursor-not-allowed opacity-60'
+          : 'bg-bg-secondary hover:bg-bg-hover text-text-primary border border-border hover:border-accent',
       )}
     >
-      {/* 新增任务标记 */}
-      {isNew && (
+      {/* 不兼容警告标记 */}
+      {disabled && incompatibleReason && (
+        <span className="absolute -top-1.5 -right-1.5 flex items-center justify-center w-4 h-4 rounded-full bg-warning text-white">
+          <AlertCircle className="w-3 h-3" />
+        </span>
+      )}
+      {/* 新增任务标记 - 仅在非禁用时显示 */}
+      {isNew && !disabled && (
         <span className="absolute -top-2 -right-2 flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] font-bold uppercase rounded-full bg-accent text-white animate-pulse-glow-accent">
           <Sparkles className="w-3 h-3" />
           new
         </span>
       )}
-      <Plus className="w-4 h-4 flex-shrink-0 text-accent" />
+      <Plus className={clsx('w-4 h-4 flex-shrink-0', disabled ? 'text-text-muted' : 'text-accent')} />
       <span className="flex-1 truncate">{label}</span>
       {count > 0 && (
-        <span className="flex-shrink-0 px-1.5 py-0.5 text-xs rounded-full bg-accent/10 text-accent font-medium">
+        <span className={clsx(
+          'flex-shrink-0 px-1.5 py-0.5 text-xs rounded-full font-medium',
+          disabled ? 'bg-text-muted/10 text-text-muted' : 'bg-accent/10 text-accent',
+        )}>
           {count}
         </span>
       )}
 
-      {/* Description Tooltip - 使用 Portal 渲染到 body，避免被 overflow 裁剪 */}
+      {/* Tooltip - 使用 Portal 渲染到 body，避免被 overflow 裁剪 */}
       {showTooltip &&
-        hasDescription &&
         createPortal(
           <div
             className={clsx(
@@ -100,16 +116,27 @@ function TaskButton({
               top: tooltipPos.y - 8,
             }}
           >
+            {/* 任务描述 */}
             {resolvedDescription.loading ? (
               <div className="flex items-center gap-1.5 text-text-muted">
                 <Loader2 className="w-3 h-3 animate-spin" />
                 <span>{t('taskItem.loadingDescription')}</span>
               </div>
-            ) : (
+            ) : resolvedDescription.html ? (
               <div
                 className="text-text-secondary [&_p]:my-0.5 [&_a]:text-accent [&_a]:hover:underline"
                 dangerouslySetInnerHTML={{ __html: resolvedDescription.html }}
               />
+            ) : null}
+            {/* 不兼容提示 - 在描述下方显示 */}
+            {disabled && incompatibleReason && (
+              <div className={clsx(
+                'flex items-center gap-1.5 px-2 py-1.5 rounded-md bg-warning/10 text-warning',
+                hasDescription && 'mt-2',
+              )}>
+                <AlertCircle className="w-3 h-3 flex-shrink-0" />
+                <span>{incompatibleReason}</span>
+              </div>
             )}
             {/* Tooltip 箭头 */}
             <div className="absolute left-1/2 top-full -translate-x-1/2 -mt-px">
@@ -153,40 +180,52 @@ export function AddTaskPanel() {
     return counts;
   }, [instance?.selectedTasks]);
 
+  // 获取当前实例选中的控制器和资源
+  const selectedControllerName = instance?.controllerName;
+  const selectedResourceName = instance?.resourceName;
+
   const filteredTasks = useMemo(() => {
     if (!projectInterface) return [];
-
-    // 获取当前实例选中的控制器和资源
-    const selectedControllerName = instance?.controllerName;
-    const selectedResourceName = instance?.resourceName;
 
     return projectInterface.task.filter((task) => {
       const label = resolveI18nText(task.label, langKey) || task.name;
       const searchLower = searchQuery.toLowerCase();
 
-      // 搜索关键词过滤
-      const matchesSearch =
-        task.name.toLowerCase().includes(searchLower) || label.toLowerCase().includes(searchLower);
-
-      if (!matchesSearch) return false;
-
-      // 控制器过滤：如果任务指定了 controller 字段，只在选中的控制器匹配时显示
-      if (task.controller && task.controller.length > 0) {
-        if (!selectedControllerName || !task.controller.includes(selectedControllerName)) {
-          return false;
-        }
-      }
-
-      // 资源过滤：如果任务指定了 resource 字段，只在选中的资源匹配时显示
-      if (task.resource && task.resource.length > 0) {
-        if (!selectedResourceName || !task.resource.includes(selectedResourceName)) {
-          return false;
-        }
-      }
-
-      return true;
+      // 只根据搜索关键词过滤
+      return (
+        task.name.toLowerCase().includes(searchLower) || label.toLowerCase().includes(searchLower)
+      );
     });
-  }, [projectInterface, searchQuery, resolveI18nText, langKey, instance?.controllerName, instance?.resourceName]);
+  }, [projectInterface, searchQuery, resolveI18nText, langKey]);
+
+  // 检查任务是否与当前控制器/资源兼容
+  const getTaskCompatibility = (task: TaskItem) => {
+    const isControllerIncompatible =
+      task.controller &&
+      task.controller.length > 0 &&
+      (!selectedControllerName || !task.controller.includes(selectedControllerName));
+
+    const isResourceIncompatible =
+      task.resource &&
+      task.resource.length > 0 &&
+      (!selectedResourceName || !task.resource.includes(selectedResourceName));
+
+    const isIncompatible = isControllerIncompatible || isResourceIncompatible;
+
+    let reason = '';
+    if (isIncompatible) {
+      const reasons: string[] = [];
+      if (isControllerIncompatible) {
+        reasons.push(t('taskItem.incompatibleController'));
+      }
+      if (isResourceIncompatible) {
+        reasons.push(t('taskItem.incompatibleResource'));
+      }
+      reason = reasons.join(', ');
+    }
+
+    return { isIncompatible, reason };
+  };
 
   const handleAddTask = async (taskName: string) => {
     if (!instance || !projectInterface) return;
@@ -277,6 +316,7 @@ export function AddTaskPanel() {
               const count = taskCounts[task.name] || 0;
               const label = resolveI18nText(task.label, langKey) || task.name;
               const isNew = newTaskNames.includes(task.name);
+              const { isIncompatible, reason } = getTaskCompatibility(task);
 
               return (
                 <TaskButton
@@ -287,6 +327,8 @@ export function AddTaskPanel() {
                   label={label}
                   langKey={langKey}
                   basePath={basePath}
+                  disabled={isIncompatible}
+                  incompatibleReason={reason}
                   onClick={() => handleAddTask(task.name)}
                 />
               );

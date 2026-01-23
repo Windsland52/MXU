@@ -106,6 +106,9 @@ export default {
       succeeded: '完了',
       failed: '失敗',
     },
+    // タスクの互換性
+    incompatibleController: '現在のコントローラーに対応していません',
+    incompatibleResource: '現在のリソースに対応していません',
   },
 
   // オプション

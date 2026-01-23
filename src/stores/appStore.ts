@@ -1143,24 +1143,64 @@ export const useAppStore = create<AppState>()(
     selectedResource: {},
 
     setSelectedController: (instanceId, controllerName) =>
-      set((state) => ({
-        selectedController: {
-          ...state.selectedController,
-          [instanceId]: controllerName,
-        },
-        // 同时更新 Instance 中的 controllerName
-        instances: state.instances.map((i) => (i.id === instanceId ? { ...i, controllerName } : i)),
-      })),
+      set((state) => {
+        const pi = state.projectInterface;
+        // 自动取消不兼容任务的勾选
+        const updatedInstances = state.instances.map((instance) => {
+          if (instance.id !== instanceId) return { ...instance, controllerName: instance.controllerName };
+          
+          const updatedTasks = instance.selectedTasks.map((task) => {
+            const taskDef = pi?.task.find((t) => t.name === task.taskName);
+            // 如果任务指定了 controller 限制且不包含新控制器，取消勾选
+            if (taskDef?.controller && taskDef.controller.length > 0) {
+              if (!taskDef.controller.includes(controllerName)) {
+                return { ...task, enabled: false };
+              }
+            }
+            return task;
+          });
+          
+          return { ...instance, controllerName, selectedTasks: updatedTasks };
+        });
+
+        return {
+          selectedController: {
+            ...state.selectedController,
+            [instanceId]: controllerName,
+          },
+          instances: updatedInstances,
+        };
+      }),
 
     setSelectedResource: (instanceId, resourceName) =>
-      set((state) => ({
-        selectedResource: {
-          ...state.selectedResource,
-          [instanceId]: resourceName,
-        },
-        // 同时更新 Instance 中的 resourceName
-        instances: state.instances.map((i) => (i.id === instanceId ? { ...i, resourceName } : i)),
-      })),
+      set((state) => {
+        const pi = state.projectInterface;
+        // 自动取消不兼容任务的勾选
+        const updatedInstances = state.instances.map((instance) => {
+          if (instance.id !== instanceId) return { ...instance, resourceName: instance.resourceName };
+          
+          const updatedTasks = instance.selectedTasks.map((task) => {
+            const taskDef = pi?.task.find((t) => t.name === task.taskName);
+            // 如果任务指定了 resource 限制且不包含新资源，取消勾选
+            if (taskDef?.resource && taskDef.resource.length > 0) {
+              if (!taskDef.resource.includes(resourceName)) {
+                return { ...task, enabled: false };
+              }
+            }
+            return task;
+          });
+          
+          return { ...instance, resourceName, selectedTasks: updatedTasks };
+        });
+
+        return {
+          selectedResource: {
+            ...state.selectedResource,
+            [instanceId]: resourceName,
+          },
+          instances: updatedInstances,
+        };
+      }),
 
     // 保存设备信息到实例
     setInstanceSavedDevice: (instanceId, savedDevice) =>
