@@ -4,6 +4,7 @@ import { Minus, Square, X, Copy, Box } from 'lucide-react';
 import { useAppStore } from '@/stores/appStore';
 import { getInterfaceLangKey } from '@/i18n';
 import { loadIconAsDataUrl } from '@/services/contentResolver';
+import { loggers } from '@/utils/logger';
 
 // 检测是否在 Tauri 环境中
 const isTauri = () => {
@@ -61,7 +62,7 @@ export function TitleBar() {
           setIsMaximized(await appWindow.isMaximized());
         });
       } catch (err) {
-        console.warn('Failed to setup window state listener:', err);
+        loggers.ui.warn('Failed to setup window state listener:', err);
       }
     };
 
@@ -78,7 +79,7 @@ export function TitleBar() {
       const { getCurrentWindow } = await import('@tauri-apps/api/window');
       await getCurrentWindow().minimize();
     } catch (err) {
-      console.warn('Failed to minimize window:', err);
+      loggers.ui.warn('Failed to minimize window:', err);
     }
   };
 
@@ -88,7 +89,7 @@ export function TitleBar() {
       const { getCurrentWindow } = await import('@tauri-apps/api/window');
       await getCurrentWindow().toggleMaximize();
     } catch (err) {
-      console.warn('Failed to toggle maximize:', err);
+      loggers.ui.warn('Failed to toggle maximize:', err);
     }
   };
 
@@ -98,7 +99,7 @@ export function TitleBar() {
       const { getCurrentWindow } = await import('@tauri-apps/api/window');
       await getCurrentWindow().close();
     } catch (err) {
-      console.warn('Failed to close window:', err);
+      loggers.ui.warn('Failed to close window:', err);
     }
   };
 

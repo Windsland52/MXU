@@ -9,6 +9,7 @@ import type {
   OptionValue,
   OptionDefinition,
 } from '@/types/interface';
+import { loggers } from './logger';
 
 /**
  * 深度合并对象（源对象的属性会覆盖目标对象的同名属性）
@@ -97,7 +98,7 @@ export const processOptionOverride = (
     try {
       deepMerge(overrides, JSON.parse(overrideStr));
     } catch (e) {
-      console.warn('解析选项覆盖失败:', e);
+      loggers.task.warn('解析选项覆盖失败:', e);
     }
   }
 };

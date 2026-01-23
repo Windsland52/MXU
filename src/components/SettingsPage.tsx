@@ -48,6 +48,7 @@ import {
 } from '@/services/contentResolver';
 import { maaService } from '@/services/maaService';
 import { ReleaseNotes, DownloadProgressBar } from './UpdateInfoCard';
+import { loggers } from '@/utils/logger';
 import { FrameRateSelector } from './FrameRateSelector';
 import clsx from 'clsx';
 
@@ -160,7 +161,7 @@ export function SettingsPage({ onClose }: SettingsPageProps) {
           setDownloadStatus('failed');
         }
       } catch (error) {
-        console.error('下载失败:', error);
+        loggers.ui.error('下载失败:', error);
         setDownloadStatus('failed');
       }
     },
@@ -449,7 +450,7 @@ export function SettingsPage({ onClose }: SettingsPageProps) {
   // 调试：打开配置目录
   const handleOpenConfigDir = async () => {
     if (!isTauri() || !basePath) {
-      console.warn('仅 Tauri 环境支持打开目录, basePath:', basePath);
+      loggers.ui.warn('仅 Tauri 环境支持打开目录, basePath:', basePath);
       return;
     }
 
@@ -457,17 +458,17 @@ export function SettingsPage({ onClose }: SettingsPageProps) {
       const { openPath } = await import('@tauri-apps/plugin-opener');
       const { join } = await import('@tauri-apps/api/path');
       const configPath = await join(basePath, 'config');
-      console.log('打开配置目录:', configPath);
+      loggers.ui.info('打开配置目录:', configPath);
       await openPath(configPath);
     } catch (err) {
-      console.error('打开配置目录失败:', err);
+      loggers.ui.error('打开配置目录失败:', err);
     }
   };
 
   // 调试：打开日志目录
   const handleOpenLogDir = async () => {
     if (!isTauri() || !basePath) {
-      console.warn('仅 Tauri 环境支持打开目录, basePath:', basePath);
+      loggers.ui.warn('仅 Tauri 环境支持打开目录, basePath:', basePath);
       return;
     }
 
@@ -475,10 +476,10 @@ export function SettingsPage({ onClose }: SettingsPageProps) {
       const { openPath } = await import('@tauri-apps/plugin-opener');
       const { join } = await import('@tauri-apps/api/path');
       const logPath = await join(basePath, 'debug');
-      console.log('打开日志目录:', logPath);
+      loggers.ui.info('打开日志目录:', logPath);
       await openPath(logPath);
     } catch (err) {
-      console.error('打开日志目录失败:', err);
+      loggers.ui.error('打开日志目录失败:', err);
     }
   };
 

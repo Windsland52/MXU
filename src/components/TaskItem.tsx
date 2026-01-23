@@ -30,6 +30,7 @@ import { ContextMenu, useContextMenu, type MenuItem } from './ContextMenu';
 import type { SelectedTask } from '@/types/interface';
 import { getInterfaceLangKey } from '@/i18n';
 import clsx from 'clsx';
+import { loggers } from '@/utils/logger';
 
 /** 选项预览标签组件 */
 function OptionPreviewTag({
@@ -221,7 +222,7 @@ export function TaskItem({ instanceId, task }: TaskItemProps) {
     // 生成新的 pipeline override 并调用后端
     const pipelineOverride = generateTaskPipelineOverride(task, projectInterface);
     maaService.overridePipeline(instanceId, maaTaskId, pipelineOverride).catch((err) => {
-      console.error('Failed to override pipeline:', err);
+      loggers.task.error('Failed to override pipeline:', err);
     });
   }, [
     task.optionValues,

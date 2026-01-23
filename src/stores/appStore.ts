@@ -29,6 +29,7 @@ import type { ConnectionStatus, TaskStatus, AdbDevice, Win32Window } from '@/typ
 import { saveConfig } from '@/services/configService';
 import { getInterfaceLangKey } from '@/i18n';
 import { applyTheme, type AccentColor } from '@/themes';
+import { loggers } from '@/utils/logger';
 
 /** 单个任务的运行状态 */
 export type TaskRunStatus = 'idle' | 'pending' | 'running' | 'succeeded' | 'failed';
@@ -479,7 +480,7 @@ export const useAppStore = create<AppState>()(
         const { maaService } = await import('@/services/maaService');
         await maaService.setSaveDraw(enabled);
       } catch (err) {
-        console.error('设置保存调试图像失败:', err);
+        loggers.app.error('设置保存调试图像失败:', err);
       }
     },
 

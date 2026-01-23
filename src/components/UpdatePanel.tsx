@@ -19,6 +19,7 @@ import {
 } from '@/services/updateService';
 import { DownloadProgressBar } from './UpdateInfoCard';
 import clsx from 'clsx';
+import { loggers } from '@/utils/logger';
 
 interface UpdatePanelProps {
   onClose: () => void;
@@ -84,7 +85,7 @@ export function UpdatePanel({ onClose, anchorRef }: UpdatePanelProps) {
         setDownloadStatus('failed');
       }
     } catch (error) {
-      console.error('下载失败:', error);
+      loggers.ui.error('下载失败:', error);
       setDownloadStatus('failed');
     }
   }, [updateInfo, basePath, setDownloadStatus, setDownloadProgress, setDownloadSavePath]);

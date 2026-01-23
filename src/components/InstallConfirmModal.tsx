@@ -17,6 +17,7 @@ import {
   clearPendingUpdateInfo,
 } from '@/services/updateService';
 import { ReleaseNotes, DownloadProgressBar } from './UpdateInfoCard';
+import { loggers } from '@/utils/logger';
 
 export function InstallConfirmModal() {
   const { t } = useTranslation();
@@ -75,7 +76,7 @@ export function InstallConfirmModal() {
         setInstallError(t('mirrorChyan.installFailed'));
       }
     } catch (error) {
-      console.error('安装失败:', error);
+      loggers.ui.error('安装失败:', error);
       setInstallStatus('failed');
       setInstallError(error instanceof Error ? error.message : String(error));
     }
@@ -98,7 +99,7 @@ export function InstallConfirmModal() {
       }
       await restartApp();
     } catch (error) {
-      console.error('重启失败:', error);
+      loggers.ui.error('重启失败:', error);
     }
   }, [updateInfo, currentVersion]);
 
@@ -167,7 +168,7 @@ export function InstallConfirmModal() {
             setInstallError(t('mirrorChyan.installFailed'));
           }
         } catch (error) {
-          console.error('安装失败:', error);
+          loggers.ui.error('安装失败:', error);
           setInstallStatus('failed');
           setInstallError(error instanceof Error ? error.message : String(error));
         }

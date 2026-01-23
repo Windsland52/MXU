@@ -4,6 +4,9 @@
  */
 
 import type { ModeTheme, AccentTheme, ThemeMode, AccentColor, AccentInfo } from './types';
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('Theme');
 
 // 静态导入所有主题预设（Vite 需要静态导入才能正确打包）
 import lightTheme from './presets/light.json';
@@ -103,7 +106,7 @@ export function applyTheme(mode: ThemeMode, accent: AccentColor): void {
   const accentTheme = accentThemes[accent];
 
   if (!modeTheme || !accentTheme) {
-    console.warn(`Theme not found: mode=${mode}, accent=${accent}`);
+    logger.warn(`Theme not found: mode=${mode}, accent=${accent}`);
     return;
   }
 

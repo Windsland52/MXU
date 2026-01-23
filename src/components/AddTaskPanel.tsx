@@ -156,14 +156,37 @@ export function AddTaskPanel() {
   const filteredTasks = useMemo(() => {
     if (!projectInterface) return [];
 
+    // 获取当前实例选中的控制器和资源
+    const selectedControllerName = instance?.controllerName;
+    const selectedResourceName = instance?.resourceName;
+
     return projectInterface.task.filter((task) => {
       const label = resolveI18nText(task.label, langKey) || task.name;
       const searchLower = searchQuery.toLowerCase();
-      return (
-        task.name.toLowerCase().includes(searchLower) || label.toLowerCase().includes(searchLower)
-      );
+
+      // 搜索关键词过滤
+      const matchesSearch =
+        task.name.toLowerCase().includes(searchLower) || label.toLowerCase().includes(searchLower);
+
+      if (!matchesSearch) return false;
+
+      // 控制器过滤：如果任务指定了 controller 字段，只在选中的控制器匹配时显示
+      if (task.controller && task.controller.length > 0) {
+        if (!selectedControllerName || !task.controller.includes(selectedControllerName)) {
+          return false;
+        }
+      }
+
+      // 资源过滤：如果任务指定了 resource 字段，只在选中的资源匹配时显示
+      if (task.resource && task.resource.length > 0) {
+        if (!selectedResourceName || !task.resource.includes(selectedResourceName)) {
+          return false;
+        }
+      }
+
+      return true;
     });
-  }, [projectInterface, searchQuery, resolveI18nText, langKey]);
+  }, [projectInterface, searchQuery, resolveI18nText, langKey, instance?.controllerName, instance?.resourceName]);
 
   const handleAddTask = async (taskName: string) => {
     if (!instance || !projectInterface) return;

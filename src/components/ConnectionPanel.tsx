@@ -291,8 +291,17 @@ export function ConnectionPanel() {
     controllers.find((c) => c.name === currentControllerName) || controllers[0];
   const controllerType = currentController?.type;
 
-  // 获取资源列表和当前选中的资源
-  const resources = projectInterface?.resource || [];
+  // 获取资源列表（根据当前控制器过滤）
+  const allResources = projectInterface?.resource || [];
+  const resources = useMemo(() => {
+    return allResources.filter((r) => {
+      // 如果资源指定了 controller 字段，只在选中的控制器匹配时显示
+      if (r.controller && r.controller.length > 0) {
+        return r.controller.includes(currentControllerName);
+      }
+      return true;
+    });
+  }, [allResources, currentControllerName]);
   const currentResourceName = selectedResource[instanceId] || resources[0]?.name;
   const currentResource = resources.find((r) => r.name === currentResourceName) || resources[0];
 
@@ -1148,6 +1157,27 @@ export function ConnectionPanel() {
                       setInstanceConnectionStatus(instanceId, 'Disconnected');
                       setSelectedAdbDevice(null);
                       setSelectedWindow(null);
+
+                      // 检查当前资源是否支持新控制器，如果不支持则切换到第一个可用资源
+                      const newControllerResources = allResources.filter((r) => {
+                        if (r.controller && r.controller.length > 0) {
+                          return r.controller.includes(controller.name);
+                        }
+                        return true;
+                      });
+
+                      const currentResourceSupported = newControllerResources.some(
+                        (r) => r.name === currentResourceName,
+                      );
+
+                      if (!currentResourceSupported && newControllerResources.length > 0) {
+                        // 当前资源不支持新控制器，切换到第一个可用资源
+                        setSelectedResource(instanceId, newControllerResources[0].name);
+                        // 同时清除资源加载状态
+                        setIsResourceLoaded(false);
+                        setInstanceResourceLoaded(instanceId, false);
+                        lastLoadedResourceRef.current = null;
+                      }
                     }}
                     disabled={isConnecting || isSearching}
                     className={clsx(
