@@ -717,6 +717,16 @@ export function TaskItem({ instanceId, task }: TaskItemProps) {
                 )}
               </div>
 
+              {/* 不带选项的任务：直接显示不兼容警告 */}
+              {!canExpand && isIncompatible && (
+                <div className="flex-1 flex items-center gap-1.5 mx-2 overflow-hidden">
+                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 text-xs text-warning">
+                    <AlertCircle className="w-3 h-3" />
+                    {incompatibleReason}
+                  </span>
+                </div>
+              )}
+
               {/* 展开/折叠点击区域（包含选项预览） */}
               {canExpand && (
                 <div
