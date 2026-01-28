@@ -6,6 +6,7 @@ import type { OptionValue, CaseItem, InputItem } from '@/types/interface';
 import clsx from 'clsx';
 import { Info, AlertCircle, Loader2, FileText, Link, ChevronDown, Check } from 'lucide-react';
 import { getInterfaceLangKey } from '@/i18n';
+import { findSwitchCase } from '@/utils/optionHelpers';
 
 /** 异步加载图标组件 */
 function AsyncIcon({
@@ -227,6 +228,7 @@ export function OptionEditor({
     language,
     basePath,
     interfaceTranslations,
+    instances,
   } = useAppStore();
 
   const optionDef = projectInterface?.option?.[optionKey];
@@ -237,17 +239,18 @@ export function OptionEditor({
   const optionDescription = resolveI18nText(optionDef.description, langKey);
   const translations = interfaceTranslations[langKey];
 
+  // 获取当前任务的所有选项值（用于嵌套选项）
+  const allOptionValues = useMemo(() => {
+    const instance = instances.find((i) => i.id === instanceId);
+    const task = instance?.selectedTasks.find((t) => t.id === taskId);
+    return task?.optionValues || {};
+  }, [instances, instanceId, taskId]);
+
   // 获取当前选中的 case（用于渲染嵌套选项）
   const getSelectedCase = (): CaseItem | undefined => {
     if (optionDef.type === 'switch') {
       const isChecked = value?.type === 'switch' ? value.value : false;
-      // switch 类型需要匹配 Yes/yes/Y/y 或 No/no/N/n
-      return optionDef.cases?.find((c) => {
-        if (isChecked) {
-          return ['Yes', 'yes', 'Y', 'y'].includes(c.name);
-        }
-        return ['No', 'no', 'N', 'n'].includes(c.name);
-      });
+      return findSwitchCase(optionDef.cases, isChecked);
     }
     if (optionDef.type === 'select' || !optionDef.type) {
       const caseName =
@@ -307,12 +310,7 @@ export function OptionEditor({
                 instanceId={instanceId}
                 taskId={taskId}
                 optionKey={nestedKey}
-                value={
-                  useAppStore
-                    .getState()
-                    .instances.find((i) => i.id === instanceId)
-                    ?.selectedTasks.find((t) => t.id === taskId)?.optionValues[nestedKey]
-                }
+                value={allOptionValues[nestedKey]}
                 depth={depth + 1}
                 disabled={disabled}
               />
@@ -400,12 +398,7 @@ export function OptionEditor({
               instanceId={instanceId}
               taskId={taskId}
               optionKey={nestedKey}
-              value={
-                useAppStore
-                  .getState()
-                  .instances.find((i) => i.id === instanceId)
-                  ?.selectedTasks.find((t) => t.id === taskId)?.optionValues[nestedKey]
-              }
+              value={allOptionValues[nestedKey]}
               depth={depth + 1}
               disabled={disabled}
             />
