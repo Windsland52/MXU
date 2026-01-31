@@ -13,7 +13,7 @@ import {
 import { useAppStore } from '@/stores/appStore';
 import { maaService } from '@/services/maaService';
 import clsx from 'clsx';
-import { loggers, generateTaskPipelineOverride } from '@/utils';
+import { loggers, generateTaskPipelineOverride, computeResourcePaths } from '@/utils';
 import type { TaskConfig, AgentConfig, ControllerConfig } from '@/types/maa';
 import { parseWin32ScreencapMethod, parseWin32InputMethod } from '@/types/maa';
 import { SchedulePanel } from './SchedulePanel';
@@ -422,10 +422,8 @@ export function Toolbar({ showAddPanel, onToggleAddPanel }: ToolbarProps) {
     log.info('加载资源...');
 
     try {
-      const resourcePaths = currentResource.path.map((p) => {
-        const cleanPath = p.replace(/^\.\//, '').replace(/^\.\\/, '');
-        return `${basePath}/${cleanPath}`;
-      });
+      // 计算完整的资源路径（包括 controller.attach_resource_path）
+      const resourcePaths = computeResourcePaths(currentResource, currentController, basePath);
 
       const resIds = await maaService.loadResource(instanceId, resourcePaths);
       pendingResIdsRef.current = new Set(resIds);
@@ -628,10 +626,8 @@ export function Toolbar({ showAddPanel, onToggleAddPanel }: ToolbarProps) {
         if (!instanceResourceLoaded[targetId] && resource) {
           log.info(`实例 ${targetInstance.name}: 加载资源...`);
 
-          const resourcePaths = resource.path.map((p) => {
-            const cleanPath = p.replace(/^\.\//, '').replace(/^\.\\/, '');
-            return `${basePath}/${cleanPath}`;
-          });
+          // 计算完整的资源路径（包括 controller.attach_resource_path）
+          const resourcePaths = computeResourcePaths(resource, controller, basePath);
 
           const resIds = await maaService.loadResource(targetId, resourcePaths);
 
