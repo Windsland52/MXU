@@ -260,8 +260,15 @@ export function DeviceSelector({
       }
       registerCtrlIdName(ctrlId, deviceName, targetType);
 
-      // 记录等待中的 ctrl_id，后续由回调处理完成状态
-      setPendingCtrlId(ctrlId);
+      // ctrlId = 0 表示控制器已连接（复用已有连接），无需等待回调
+      if (ctrlId === 0) {
+        setIsConnected(true);
+        onConnectionChange?.(true);
+        setIsConnecting(false);
+      } else {
+        // 记录等待中的 ctrl_id，后续由回调处理完成状态
+        setPendingCtrlId(ctrlId);
+      }
     } catch (err) {
       log.error('连接失败:', err);
       setError(err instanceof Error ? err.message : '连接失败');
@@ -325,8 +332,15 @@ export function DeviceSelector({
       // 注册 ctrl_id 与设备名/类型的映射
       registerCtrlIdName(ctrlId, device.name || device.address, 'device');
 
-      // 记录等待中的 ctrl_id，后续由回调处理完成状态
-      setPendingCtrlId(ctrlId);
+      // ctrlId = 0 表示控制器已连接（复用已有连接），无需等待回调
+      if (ctrlId === 0) {
+        setIsConnected(true);
+        onConnectionChange?.(true);
+        setIsConnecting(false);
+      } else {
+        // 记录等待中的 ctrl_id，后续由回调处理完成状态
+        setPendingCtrlId(ctrlId);
+      }
     } catch (err) {
       log.error('自动连接失败:', err);
       setError(err instanceof Error ? err.message : '连接失败');
@@ -374,8 +388,15 @@ export function DeviceSelector({
       // 注册 ctrl_id 与窗口名/类型的映射
       registerCtrlIdName(ctrlId, win.window_name || win.class_name, 'window');
 
-      // 记录等待中的 ctrl_id，后续由回调处理完成状态
-      setPendingCtrlId(ctrlId);
+      // ctrlId = 0 表示控制器已连接（复用已有连接），无需等待回调
+      if (ctrlId === 0) {
+        setIsConnected(true);
+        onConnectionChange?.(true);
+        setIsConnecting(false);
+      } else {
+        // 记录等待中的 ctrl_id，后续由回调处理完成状态
+        setPendingCtrlId(ctrlId);
+      }
     } catch (err) {
       log.error('自动连接失败:', err);
       setError(err instanceof Error ? err.message : '连接失败');

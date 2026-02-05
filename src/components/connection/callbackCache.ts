@@ -51,11 +51,17 @@ export function startGlobalCallbackListener() {
 
 /**
  * 等待控制器连接结果（先查缓存，没有则等待回调）
+ * 注意：ctrlId = 0 表示控制器已连接（复用已有连接），直接返回成功
  */
 export async function waitForCtrlResult(
   ctrlId: number,
   timeoutMs: number = 30000,
 ): Promise<CallbackResult> {
+  // ctrlId = 0 表示控制器已连接（复用已有连接），无需等待回调
+  if (ctrlId === 0) {
+    return 'succeeded';
+  }
+
   // 先检查缓存
   const cached = ctrlCallbackCache.get(ctrlId);
   if (cached) {

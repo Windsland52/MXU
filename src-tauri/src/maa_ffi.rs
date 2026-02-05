@@ -21,6 +21,7 @@ use once_cell::sync::Lazy;
 use serde::Serialize;
 use tauri::{AppHandle, Emitter};
 
+use crate::commands::types::CONTROLLER_POOL;
 use crate::commands::utils::get_app_data_dir;
 
 // 类型定义 (对应 MaaDef.h)
@@ -972,6 +973,14 @@ extern "C" fn maa_event_callback(
                     ids
                 );
             }
+
+            // 连接完成（成功或失败）后，清除待处理的连接 ID
+            if message_str == "Controller.Action.Succeeded"
+                || message_str == "Controller.Action.Failed"
+            {
+                CONTROLLER_POOL.clear_pending_conn_id_by_ptr(handle as usize);
+            }
+
             ids
         } else {
             Vec::new()

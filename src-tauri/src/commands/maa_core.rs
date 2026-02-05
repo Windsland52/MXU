@@ -502,7 +502,7 @@ pub fn maa_connect_controller(
                 .get_mut(&instance_id)
                 .ok_or("Instance not found")?;
             instance.controller = Some(existing_controller);
-            instance.controller_pool_key = Some(pool_key);
+            instance.controller_pool_key = Some(pool_key.clone());
         }
 
         if connected {
@@ -510,10 +510,24 @@ pub fn maa_connect_controller(
             info!("Controller already connected, returning 0");
             return Ok(0);
         } else {
-            // 未连接，重新发起连接
+            // 检查是否有正在进行的连接
+            if let Some(pending_id) = CONTROLLER_POOL.get_pending_conn_id(&pool_key) {
+                // 有正在进行的连接，复用该 conn_id
+                info!(
+                    "Controller has pending connection, reusing conn_id: {}",
+                    pending_id
+                );
+                return Ok(pending_id);
+            }
+
+            // 未连接且没有待处理的连接，发起新连接
             debug!("Controller not connected, posting connection...");
             let conn_id = unsafe { (lib.maa_controller_post_connection)(existing_controller) };
             info!("MaaControllerPostConnection returned conn_id: {}", conn_id);
+
+            // 记录待处理的连接 ID
+            CONTROLLER_POOL.set_pending_conn_id(&pool_key, conn_id);
+
             return Ok(conn_id);
         }
     }
@@ -648,6 +662,9 @@ pub fn maa_connect_controller(
 
     // 将控制器添加到池中
     CONTROLLER_POOL.insert(pool_key.clone(), controller, &instance_id);
+
+    // 记录待处理的连接 ID（用于其他实例复用）
+    CONTROLLER_POOL.set_pending_conn_id(&pool_key, conn_id);
 
     // 更新实例状态
     debug!("Updating instance state...");

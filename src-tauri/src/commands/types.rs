@@ -155,6 +155,9 @@ pub struct PooledController {
     pub ref_count: AtomicUsize,
     /// 使用该控制器的实例 ID 列表
     pub instance_ids: Mutex<Vec<String>>,
+    /// 正在进行中的连接 ID（用于避免重复发起连接）
+    /// 当控制器正在连接中时，新的实例应复用此 conn_id 而不是再次调用 PostConnection
+    pub pending_conn_id: Mutex<Option<i64>>,
 }
 
 // MaaController 指针是线程安全的
@@ -167,6 +170,7 @@ impl PooledController {
             controller,
             ref_count: AtomicUsize::new(1),
             instance_ids: Mutex::new(Vec::new()),
+            pending_conn_id: Mutex::new(None),
         }
     }
 
@@ -328,6 +332,64 @@ impl ControllerPool {
                 }
             }
             Err(_) => Vec::new(),
+        }
+    }
+
+    /// 获取控制器的待处理连接 ID
+    /// 如果控制器正在连接中，返回对应的 conn_id
+    pub fn get_pending_conn_id(&self, key: &str) -> Option<i64> {
+        let controllers = self.controllers.lock().ok()?;
+        let pooled = controllers.get(key)?;
+        let pending = pooled.pending_conn_id.lock().ok()?;
+        *pending
+    }
+
+    /// 设置控制器的待处理连接 ID
+    /// 在发起连接后调用，记录正在等待的 conn_id
+    pub fn set_pending_conn_id(&self, key: &str, conn_id: i64) {
+        if let Ok(controllers) = self.controllers.lock() {
+            if let Some(pooled) = controllers.get(key) {
+                if let Ok(mut pending) = pooled.pending_conn_id.lock() {
+                    *pending = Some(conn_id);
+                    log::debug!(
+                        "[ControllerPool] Set pending_conn_id for key '{}': {}",
+                        key,
+                        conn_id
+                    );
+                }
+            }
+        }
+    }
+
+    /// 清除控制器的待处理连接 ID
+    /// 在连接成功或失败后调用
+    pub fn clear_pending_conn_id(&self, key: &str) {
+        if let Ok(controllers) = self.controllers.lock() {
+            if let Some(pooled) = controllers.get(key) {
+                if let Ok(mut pending) = pooled.pending_conn_id.lock() {
+                    if pending.is_some() {
+                        log::debug!(
+                            "[ControllerPool] Cleared pending_conn_id for key '{}'",
+                            key
+                        );
+                    }
+                    *pending = None;
+                }
+            }
+        }
+    }
+
+    /// 根据控制器指针清除待处理连接 ID
+    /// 用于回调时根据控制器指针清除状态
+    pub fn clear_pending_conn_id_by_ptr(&self, ptr: usize) {
+        // 先通过指针找到 pool_key
+        let key = match self.ptr_to_key.lock() {
+            Ok(guard) => guard.get(&ptr).cloned(),
+            Err(_) => return,
+        };
+
+        if let Some(key) = key {
+            self.clear_pending_conn_id(&key);
         }
     }
 }

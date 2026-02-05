@@ -494,24 +494,30 @@ export function Toolbar({ showAddPanel, onToggleAddPanel }: ToolbarProps) {
           }
           registerCtrlIdName(ctrlId, deviceName, targetType);
 
-          // 等待连接完成
-          const connectResult = await new Promise<boolean>((resolve) => {
-            const timeout = setTimeout(() => resolve(false), 30000);
-            maaService.onCallback((message, details) => {
-              if (details.ctrl_id !== ctrlId) return;
-              clearTimeout(timeout);
-              if (message === 'Controller.Action.Succeeded') {
-                setInstanceConnectionStatus(targetId, 'Connected');
-                resolve(true);
-              } else {
-                resolve(false);
-              }
+          // ctrlId = 0 表示控制器已连接（复用已有连接），无需等待回调
+          if (ctrlId === 0) {
+            log.info(`实例 ${targetInstance.name}: 控制器已连接（复用）`);
+            setInstanceConnectionStatus(targetId, 'Connected');
+          } else {
+            // 等待连接完成
+            const connectResult = await new Promise<boolean>((resolve) => {
+              const timeout = setTimeout(() => resolve(false), 30000);
+              maaService.onCallback((message, details) => {
+                if (details.ctrl_id !== ctrlId) return;
+                clearTimeout(timeout);
+                if (message === 'Controller.Action.Succeeded') {
+                  setInstanceConnectionStatus(targetId, 'Connected');
+                  resolve(true);
+                } else {
+                  resolve(false);
+                }
+              });
             });
-          });
 
-          if (!connectResult) {
-            log.warn(`实例 ${targetInstance.name}: 连接设备失败`);
-            return false;
+            if (!connectResult) {
+              log.warn(`实例 ${targetInstance.name}: 连接设备失败`);
+              return false;
+            }
           }
         }
 
