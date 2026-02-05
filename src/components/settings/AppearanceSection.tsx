@@ -16,6 +16,7 @@ import { useAppStore } from '@/stores/appStore';
 import { getAccentInfoList, type AccentColor, type CustomAccent } from '@/themes';
 import { FrameRateSelector } from '../FrameRateSelector';
 import { SortableAccentTile } from './SortableAccentTile';
+import { SwitchButton } from '@/components/FormControls';
 
 interface AppearanceSectionProps {
   onOpenCreateAccentModal: () => void;
@@ -219,20 +220,7 @@ export function AppearanceSection({
               </p>
             </div>
           </div>
-          <button
-            onClick={() => setShowOptionPreview(!showOptionPreview)}
-            className={clsx(
-              'relative w-11 h-6 rounded-full transition-colors flex-shrink-0',
-              showOptionPreview ? 'bg-accent' : 'bg-bg-active',
-            )}
-          >
-            <span
-              className={clsx(
-                'absolute top-1 left-1 w-4 h-4 rounded-full bg-white shadow-sm transition-transform duration-200',
-                showOptionPreview ? 'translate-x-5' : 'translate-x-0',
-              )}
-            />
-          </button>
+          <SwitchButton value={showOptionPreview} onChange={(v) => setShowOptionPreview(v)} />
         </div>
       </div>
 

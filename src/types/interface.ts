@@ -176,6 +176,14 @@ export interface SchedulePolicy {
   hours: number[]; // 开始时间 (0-23)
 }
 
+// 前置/后置动作配置（启动子进程）
+export interface ActionConfig {
+  enabled: boolean; // 是否启用
+  program: string; // 程序路径
+  args: string; // 附加参数
+  waitForExit: boolean; // 是否等待进程退出（默认 true）
+}
+
 // 多开实例状态
 export interface Instance {
   id: string;
@@ -191,6 +199,9 @@ export interface Instance {
   isRunning: boolean;
   // 定时执行策略列表
   schedulePolicies?: SchedulePolicy[];
+  // 前置/后置动作配置
+  preAction?: ActionConfig;
+  postAction?: ActionConfig;
 }
 
 // 翻译文件类型

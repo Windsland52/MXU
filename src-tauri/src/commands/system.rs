@@ -204,6 +204,70 @@ pub async fn run_and_wait(file_path: String) -> Result<i32, String> {
     }
 }
 
+/// 执行前置/后置动作（运行程序并等待其退出）
+/// program: 程序路径
+/// args: 附加参数（空格分隔）
+/// cwd: 工作目录（可选，默认为程序所在目录）
+/// wait_for_exit: 是否等待进程退出
+#[tauri::command]
+pub async fn run_action(
+    program: String,
+    args: String,
+    cwd: Option<String>,
+    wait_for_exit: bool,
+) -> Result<i32, String> {
+    use std::process::Command;
+
+    info!(
+        "run_action: program={}, args={}, wait={}",
+        program, args, wait_for_exit
+    );
+
+    // 解析参数字符串为参数数组（简单按空格分割，不处理引号）
+    let args_vec: Vec<&str> = if args.trim().is_empty() {
+        vec![]
+    } else {
+        args.split_whitespace().collect()
+    };
+
+    let mut cmd = Command::new(&program);
+
+    // 添加参数
+    if !args_vec.is_empty() {
+        cmd.args(&args_vec);
+    }
+
+    // 设置工作目录
+    if let Some(ref dir) = cwd {
+        cmd.current_dir(dir);
+    } else {
+        // 默认使用程序所在目录作为工作目录
+        if let Some(parent) = std::path::Path::new(&program).parent() {
+            if parent.exists() {
+                cmd.current_dir(parent);
+            }
+        }
+    }
+
+    if wait_for_exit {
+        // 等待进程退出
+        let status = cmd
+            .status()
+            .map_err(|e| format!("Failed to run action: {} - {}", program, e))?;
+
+        let exit_code = status.code().unwrap_or(-1);
+        info!("run_action finished with exit code: {}", exit_code);
+        Ok(exit_code)
+    } else {
+        // 不等待，启动后立即返回
+        cmd.spawn()
+            .map_err(|e| format!("Failed to spawn action: {} - {}", program, e))?;
+
+        info!("run_action spawned (not waiting)");
+        Ok(0) // 不等待时返回 0
+    }
+}
+
 /// 重新尝试加载 MaaFramework 库
 #[tauri::command]
 pub async fn retry_load_maa_library() -> Result<String, String> {

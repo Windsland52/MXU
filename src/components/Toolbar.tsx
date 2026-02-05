@@ -96,10 +96,6 @@ export function Toolbar({ showAddPanel, onToggleAddPanel }: ToolbarProps) {
   const [showPermissionModal, setShowPermissionModal] = useState(false);
   const [isRestartingAsAdmin, setIsRestartingAsAdmin] = useState(false);
 
-  // 自动连接回调 ID
-  const pendingCtrlIdRef = useRef<number | null>(null);
-  const pendingResIdsRef = useRef<Set<number>>(new Set());
-
   const instance = getActiveInstance();
   const tasks = instance?.selectedTasks || [];
   const allEnabled = tasks.length > 0 && tasks.every((t) => t.enabled);
@@ -191,6 +187,41 @@ export function Toolbar({ showAddPanel, onToggleAddPanel }: ToolbarProps) {
               });
             }
 
+            // 执行后置动作（如果启用且有程序路径）
+            const runningInstance = useAppStore.getState().instances.find(i => i.id === runningInstanceId);
+            if (runningInstance?.postAction?.enabled && runningInstance.postAction.program.trim()) {
+              log.info('执行后置动作:', runningInstance.postAction.program);
+              addLog(runningInstanceId, {
+                type: 'info',
+                message: t('action.postActionStarting'),
+              });
+              maaService.runAction(
+                runningInstance.postAction.program,
+                runningInstance.postAction.args,
+                basePath,
+                runningInstance.postAction.waitForExit ?? true,
+              ).then((exitCode) => {
+                if (exitCode !== 0) {
+                  log.warn('后置动作退出码非零:', exitCode);
+                  addLog(runningInstanceId, {
+                    type: 'warning',
+                    message: t('action.postActionExitCode', { code: exitCode }),
+                  });
+                } else {
+                  addLog(runningInstanceId, {
+                    type: 'success',
+                    message: t('action.postActionCompleted'),
+                  });
+                }
+              }).catch((err) => {
+                log.error('后置动作执行失败:', err);
+                addLog(runningInstanceId, {
+                  type: 'error',
+                  message: t('action.postActionFailed', { error: String(err) }),
+                });
+              });
+            }
+
             setInstanceTaskStatus(runningInstanceId, 'Succeeded');
             updateInstance(runningInstanceId, { isRunning: false });
             setInstanceCurrentTaskId(runningInstanceId, null);
@@ -229,6 +260,41 @@ export function Toolbar({ showAddPanel, onToggleAddPanel }: ToolbarProps) {
             if (projectInterface?.agent) {
               maaService.stopAgent(runningInstanceId).catch((err) => {
                 log.error('停止 Agent 失败:', err);
+              });
+            }
+
+            // 执行后置动作（即使有任务失败也执行，如果启用且有程序路径）
+            const runningInstance = useAppStore.getState().instances.find(i => i.id === runningInstanceId);
+            if (runningInstance?.postAction?.enabled && runningInstance.postAction.program.trim()) {
+              log.info('执行后置动作:', runningInstance.postAction.program);
+              addLog(runningInstanceId, {
+                type: 'info',
+                message: t('action.postActionStarting'),
+              });
+              maaService.runAction(
+                runningInstance.postAction.program,
+                runningInstance.postAction.args,
+                basePath,
+                runningInstance.postAction.waitForExit ?? true,
+              ).then((exitCode) => {
+                if (exitCode !== 0) {
+                  log.warn('后置动作退出码非零:', exitCode);
+                  addLog(runningInstanceId, {
+                    type: 'warning',
+                    message: t('action.postActionExitCode', { code: exitCode }),
+                  });
+                } else {
+                  addLog(runningInstanceId, {
+                    type: 'success',
+                    message: t('action.postActionCompleted'),
+                  });
+                }
+              }).catch((err) => {
+                log.error('后置动作执行失败:', err);
+                addLog(runningInstanceId, {
+                  type: 'error',
+                  message: t('action.postActionFailed', { error: String(err) }),
+                });
               });
             }
 
@@ -284,207 +350,22 @@ export function Toolbar({ showAddPanel, onToggleAddPanel }: ToolbarProps) {
   };
 
   /**
-   * 自动搜索并连接设备
-   */
-  const autoConnectDevice = async (): Promise<boolean> => {
-    if (!currentController || !savedDevice) return false;
-
-    const controllerType = currentController.type;
-
-    setAutoConnectPhase('searching');
-    log.info('自动搜索设备...');
-
-    try {
-      await ensureMaaInitialized();
-      await maaService.createInstance(instanceId).catch((err) => {
-        log.warn('创建实例失败（可能已存在）:', err);
-      });
-
-      let config: ControllerConfig | null = null;
-
-      if (controllerType === 'Adb' && savedDevice.adbDeviceName) {
-        const devices = await maaService.findAdbDevices();
-        const matchedDevice = devices.find((d) => d.name === savedDevice.adbDeviceName);
-
-        if (!matchedDevice) {
-          throw new Error(
-            t('taskList.autoConnect.deviceNotFound', { name: savedDevice.adbDeviceName }),
-          );
-        }
-
-        log.info('匹配到 ADB 设备:', matchedDevice.name);
-        config = {
-          type: 'Adb',
-          adb_path: matchedDevice.adb_path,
-          address: matchedDevice.address,
-          screencap_methods: matchedDevice.screencap_methods,
-          input_methods: matchedDevice.input_methods,
-          config: matchedDevice.config,
-        };
-      } else if (
-        (controllerType === 'Win32' || controllerType === 'Gamepad') &&
-        savedDevice.windowName
-      ) {
-        const classRegex =
-          currentController.win32?.class_regex || currentController.gamepad?.class_regex;
-        const windowRegex =
-          currentController.win32?.window_regex || currentController.gamepad?.window_regex;
-        const windows = await maaService.findWin32Windows(classRegex, windowRegex);
-        const matchedWindow = windows.find((w) => w.window_name === savedDevice.windowName);
-
-        if (!matchedWindow) {
-          throw new Error(
-            t('taskList.autoConnect.windowNotFound', { name: savedDevice.windowName }),
-          );
-        }
-
-        log.info('匹配到窗口:', matchedWindow.window_name);
-        if (controllerType === 'Win32') {
-          config = {
-            type: 'Win32',
-            handle: matchedWindow.handle,
-            screencap_method: parseWin32ScreencapMethod(currentController.win32?.screencap || ''),
-            mouse_method: parseWin32InputMethod(currentController.win32?.mouse || ''),
-            keyboard_method: parseWin32InputMethod(currentController.win32?.keyboard || ''),
-          };
-        } else {
-          config = {
-            type: 'Gamepad',
-            handle: matchedWindow.handle,
-          };
-        }
-      } else if (controllerType === 'PlayCover' && savedDevice.playcoverAddress) {
-        log.info('使用 PlayCover 地址:', savedDevice.playcoverAddress);
-        config = {
-          type: 'PlayCover',
-          address: savedDevice.playcoverAddress,
-        };
-      }
-
-      if (!config) {
-        throw new Error(t('taskList.autoConnect.noSavedDevice'));
-      }
-
-      // 连接设备
-      setAutoConnectPhase('connecting');
-      log.info('连接设备...');
-
-      const ctrlId = await maaService.connectController(instanceId, config);
-      pendingCtrlIdRef.current = ctrlId;
-
-      // 注册 ctrl_id 与设备名/类型的映射
-      let deviceName = '';
-      let targetType: 'device' | 'window' = 'device';
-      if (savedDevice?.adbDeviceName) {
-        deviceName = savedDevice.adbDeviceName;
-        targetType = 'device';
-      } else if (savedDevice?.windowName) {
-        deviceName = savedDevice.windowName;
-        targetType = 'window';
-      } else if (savedDevice?.playcoverAddress) {
-        deviceName = savedDevice.playcoverAddress;
-        targetType = 'device';
-      }
-      registerCtrlIdName(ctrlId, deviceName, targetType);
-
-      // 等待连接回调
-      return new Promise<boolean>((resolve) => {
-        const timeout = setTimeout(() => {
-          log.warn('连接超时');
-          pendingCtrlIdRef.current = null;
-          resolve(false);
-        }, 30000);
-
-        maaService.onCallback((message, details) => {
-          if (details.ctrl_id !== ctrlId) return;
-
-          clearTimeout(timeout);
-          pendingCtrlIdRef.current = null;
-
-          if (message === 'Controller.Action.Succeeded') {
-            log.info('设备连接成功');
-            setInstanceConnectionStatus(instanceId, 'Connected');
-            resolve(true);
-          } else if (message === 'Controller.Action.Failed') {
-            log.error('设备连接失败');
-            setInstanceConnectionStatus(instanceId, 'Disconnected');
-            resolve(false);
-          }
-        });
-      });
-    } catch (err) {
-      log.error('自动连接设备失败:', err);
-      throw err;
-    }
-  };
-
-  /**
-   * 自动加载资源
-   */
-  const autoLoadResource = async (): Promise<boolean> => {
-    if (!currentResource) return false;
-
-    setAutoConnectPhase('loading_resource');
-    log.info('加载资源...');
-
-    try {
-      // 计算完整的资源路径（包括 controller.attach_resource_path）
-      const resourcePaths = computeResourcePaths(currentResource, currentController, basePath);
-
-      const resIds = await maaService.loadResource(instanceId, resourcePaths);
-      pendingResIdsRef.current = new Set(resIds);
-
-      // 注册 res_id 与资源名的映射
-      const resourceName = currentResource.label || currentResource.name;
-      resIds.forEach((resId) => {
-        registerResIdName(resId, resourceName);
-      });
-
-      // 等待资源加载回调
-      return new Promise<boolean>((resolve) => {
-        const timeout = setTimeout(() => {
-          log.warn('资源加载超时');
-          pendingResIdsRef.current = new Set();
-          resolve(false);
-        }, 60000);
-
-        let remaining = new Set(resIds);
-
-        maaService.onCallback((message, details) => {
-          if (details.res_id === undefined || !remaining.has(details.res_id)) return;
-
-          if (message === 'Resource.Loading.Succeeded') {
-            remaining.delete(details.res_id);
-            if (remaining.size === 0) {
-              clearTimeout(timeout);
-              pendingResIdsRef.current = new Set();
-              log.info('资源加载成功');
-              setInstanceResourceLoaded(instanceId, true);
-              resolve(true);
-            }
-          } else if (message === 'Resource.Loading.Failed') {
-            clearTimeout(timeout);
-            pendingResIdsRef.current = new Set();
-            log.error('资源加载失败');
-            setInstanceResourceLoaded(instanceId, false);
-            resolve(false);
-          }
-        });
-      });
-    } catch (err) {
-      log.error('加载资源失败:', err);
-      throw err;
-    }
-  };
-
-  /**
-   * 为指定实例启动任务（可由定时任务调用）
+   * 统一任务启动入口 - 供手动启动、定时启动、快捷键启动等场景复用
    * @param targetInstance 目标实例
-   * @param schedulePolicyName 定时策略名称（可选，用于标记定时执行）
+   * @param options 启动选项
    * @returns 是否成功启动
    */
   const startTasksForInstance = useCallback(
-    async (targetInstance: Instance, schedulePolicyName?: string): Promise<boolean> => {
+    async (
+      targetInstance: Instance,
+      options?: {
+        /** 定时策略名称（定时执行时传入） */
+        schedulePolicyName?: string;
+        /** 自动连接阶段变化回调（用于 UI 状态更新） */
+        onPhaseChange?: (phase: AutoConnectPhase) => void;
+      },
+    ): Promise<boolean> => {
+      const { schedulePolicyName, onPhaseChange } = options || {};
       const targetId = targetInstance.id;
       const targetTasks = targetInstance.selectedTasks || [];
 
@@ -511,7 +392,7 @@ export function Toolbar({ showAddPanel, onToggleAddPanel }: ToolbarProps) {
       // 检查是否有保存的设备配置
       const hasSavedDevice = Boolean(
         savedDevice &&
-        (savedDevice.adbDeviceName || savedDevice.windowName || savedDevice.playcoverAddress),
+          (savedDevice.adbDeviceName || savedDevice.windowName || savedDevice.playcoverAddress),
       );
 
       const isTargetConnected = instanceConnectionStatus[targetId] === 'Connected';
@@ -527,9 +408,101 @@ export function Toolbar({ showAddPanel, onToggleAddPanel }: ToolbarProps) {
       }
 
       try {
+        // 先执行前置动作（在连接设备之前）
+        if (targetInstance.preAction?.enabled && targetInstance.preAction.program.trim()) {
+          log.info(`实例 ${targetInstance.name}: 执行前置动作:`, targetInstance.preAction.program);
+          addLog(targetId, {
+            type: 'info',
+            message: t('action.preActionStarting'),
+          });
+          try {
+            const exitCode = await maaService.runAction(
+              targetInstance.preAction.program,
+              targetInstance.preAction.args,
+              basePath,
+              targetInstance.preAction.waitForExit ?? true,
+            );
+            if (exitCode !== 0) {
+              log.warn(`实例 ${targetInstance.name}: 前置动作退出码非零:`, exitCode);
+              addLog(targetId, {
+                type: 'warning',
+                message: t('action.preActionExitCode', { code: exitCode }),
+              });
+            } else {
+              addLog(targetId, {
+                type: 'success',
+                message: t('action.preActionCompleted'),
+              });
+            }
+
+            // 如果没勾选等待进程退出，则循环查找设备直到找到
+            if (!(targetInstance.preAction.waitForExit ?? true) && savedDevice && controller) {
+              const controllerType = controller.type;
+              const isWindowType = controllerType === 'Win32' || controllerType === 'Gamepad';
+              log.info(`实例 ${targetInstance.name}: 等待${isWindowType ? '窗口' : '设备'}就绪...`);
+              addLog(targetId, {
+                type: 'info',
+                message: isWindowType ? t('action.waitingForWindow') : t('action.waitingForDevice'),
+              });
+              let deviceFound = false;
+              let attempts = 0;
+              const maxAttempts = 300; // 最多等待 5 分钟
+
+              while (!deviceFound && attempts < maxAttempts) {
+                try {
+                  if (controllerType === 'Adb' && savedDevice.adbDeviceName) {
+                    const devices = await maaService.findAdbDevices();
+                    deviceFound = devices.some((d) => d.name === savedDevice.adbDeviceName);
+                  } else if (
+                    (controllerType === 'Win32' || controllerType === 'Gamepad') &&
+                    savedDevice.windowName
+                  ) {
+                    const classRegex = controller.win32?.class_regex || controller.gamepad?.class_regex;
+                    const windowRegex = controller.win32?.window_regex || controller.gamepad?.window_regex;
+                    const windows = await maaService.findWin32Windows(classRegex, windowRegex);
+                    deviceFound = windows.some((w) => w.window_name === savedDevice.windowName);
+                  } else {
+                    // 无法确定控制器类型，跳过等待
+                    deviceFound = true;
+                  }
+                } catch (searchErr) {
+                  log.warn(`实例 ${targetInstance.name}: ${isWindowType ? '窗口' : '设备'}搜索出错:`, searchErr);
+                }
+
+                if (!deviceFound) {
+                  attempts++;
+                  await new Promise((resolve) => setTimeout(resolve, 1000)); // 等待 1 秒
+                }
+              }
+
+              if (deviceFound) {
+                log.info(`实例 ${targetInstance.name}: ${isWindowType ? '窗口' : '设备'}已就绪`);
+                addLog(targetId, {
+                  type: 'success',
+                  message: isWindowType ? t('action.windowReady') : t('action.deviceReady'),
+                });
+              } else {
+                log.warn(`实例 ${targetInstance.name}: 等待${isWindowType ? '窗口' : '设备'}超时`);
+                addLog(targetId, {
+                  type: 'warning',
+                  message: isWindowType ? t('action.windowWaitTimeout') : t('action.deviceWaitTimeout'),
+                });
+              }
+            }
+          } catch (err) {
+            log.error(`实例 ${targetInstance.name}: 前置动作执行失败:`, err);
+            addLog(targetId, {
+              type: 'error',
+              message: t('action.preActionFailed', { error: String(err) }),
+            });
+            // 前置动作失败不阻止任务执行，继续
+          }
+        }
+
         // 如果未连接，尝试自动连接
         if (!isTargetConnected && hasSavedDevice && controller && savedDevice) {
           log.info(`实例 ${targetInstance.name}: 自动连接设备...`);
+          onPhaseChange?.('searching');
 
           await ensureMaaInitialized();
           await maaService.createInstance(targetId).catch((err) => {
@@ -592,6 +565,19 @@ export function Toolbar({ showAddPanel, onToggleAddPanel }: ToolbarProps) {
             return false;
           }
 
+          onPhaseChange?.('connecting');
+
+          // 收集回调（避免快速连接时错过）
+          const collectedCallbacks: Array<{ message: string; details: { ctrl_id?: number } }> = [];
+          const unsubscribePromise = maaService.onCallback((message, details) => {
+            if (
+              message === 'Controller.Action.Succeeded' ||
+              message === 'Controller.Action.Failed'
+            ) {
+              collectedCallbacks.push({ message, details });
+            }
+          });
+
           const ctrlId = await maaService.connectController(targetId, config);
 
           // 注册 ctrl_id 与设备名/类型的映射
@@ -609,17 +595,58 @@ export function Toolbar({ showAddPanel, onToggleAddPanel }: ToolbarProps) {
           }
           registerCtrlIdName(ctrlId, deviceName, targetType);
 
+          // 等待初始回调收集器设置完成
+          const unsubscribe = await unsubscribePromise;
+
           // 等待连接完成
           const connectResult = await new Promise<boolean>((resolve) => {
-            const timeout = setTimeout(() => resolve(false), 30000);
-            maaService.onCallback((message, details) => {
-              if (details.ctrl_id !== ctrlId) return;
+            let resolved = false;
+
+            const cleanup = (unlisten?: () => void) => {
+              unsubscribe();
+              unlisten?.();
+            };
+
+            const timeout = setTimeout(() => {
+              if (!resolved) {
+                log.warn(`实例 ${targetInstance.name}: 连接超时`);
+                cleanup();
+                resolve(false);
+              }
+            }, 30000);
+
+            // 检查已收集的回调
+            const match = collectedCallbacks.find((cb) => cb.details.ctrl_id === ctrlId);
+            if (match) {
+              resolved = true;
               clearTimeout(timeout);
-              if (message === 'Controller.Action.Succeeded') {
+              cleanup();
+              if (match.message === 'Controller.Action.Succeeded') {
                 setInstanceConnectionStatus(targetId, 'Connected');
                 resolve(true);
               } else {
                 resolve(false);
+              }
+              return;
+            }
+
+            // 继续监听新回调
+            maaService.onCallback((message, details) => {
+              if (resolved) return;
+              if (details.ctrl_id !== ctrlId) return;
+              if (
+                message === 'Controller.Action.Succeeded' ||
+                message === 'Controller.Action.Failed'
+              ) {
+                resolved = true;
+                clearTimeout(timeout);
+                cleanup();
+                if (message === 'Controller.Action.Succeeded') {
+                  setInstanceConnectionStatus(targetId, 'Connected');
+                  resolve(true);
+                } else {
+                  resolve(false);
+                }
               }
             });
           });
@@ -633,6 +660,7 @@ export function Toolbar({ showAddPanel, onToggleAddPanel }: ToolbarProps) {
         // 如果资源未加载，尝试自动加载
         if (!instanceResourceLoaded[targetId] && resource) {
           log.info(`实例 ${targetInstance.name}: 加载资源...`);
+          onPhaseChange?.('loading_resource');
 
           // 计算完整的资源路径（包括 controller.attach_resource_path）
           const resourcePaths = computeResourcePaths(resource, controller, basePath);
@@ -640,9 +668,9 @@ export function Toolbar({ showAddPanel, onToggleAddPanel }: ToolbarProps) {
           const resIds = await maaService.loadResource(targetId, resourcePaths);
 
           // 注册 res_id 与资源名的映射
-          const resourceName = resource.label || resource.name;
+          const resDisplayName = resource.label || resource.name;
           resIds.forEach((resId) => {
-            registerResIdName(resId, resourceName);
+            registerResIdName(resId, resDisplayName);
           });
 
           // 等待资源加载完成
@@ -671,6 +699,8 @@ export function Toolbar({ showAddPanel, onToggleAddPanel }: ToolbarProps) {
             return false;
           }
         }
+
+        onPhaseChange?.('idle');
 
         log.info(`实例 ${targetInstance.name}: 开始执行任务, 数量:`, enabledTasks.length);
 
@@ -807,6 +837,8 @@ export function Toolbar({ showAddPanel, onToggleAddPanel }: ToolbarProps) {
       setScheduleExecution,
       clearScheduleExecution,
       setShowAddTaskPanel,
+      addLog,
+      t,
     ],
   );
 
@@ -844,8 +876,10 @@ export function Toolbar({ showAddPanel, onToggleAddPanel }: ToolbarProps) {
             }),
           });
 
-          // 启动任务（复用启动函数）
-          const started = await startTasksForInstance(inst, policy.name);
+          // 启动任务（复用统一入口）
+          const started = await startTasksForInstance(inst, {
+            schedulePolicyName: policy.name,
+          });
           if (started) {
             log.info(`定时任务启动成功: 实例 "${inst.name}"`);
           } else {
@@ -979,130 +1013,19 @@ export function Toolbar({ showAddPanel, onToggleAddPanel }: ToolbarProps) {
       setAutoConnectError(null);
 
       try {
-        // 如果未连接，尝试自动连接
-        if (!isConnected && hasSavedDeviceConfig) {
-          log.info('检测到保存的设备配置，尝试自动连接...');
-          const connected = await autoConnectDevice();
-          if (!connected) {
-            throw new Error(t('taskList.autoConnect.connectFailed'));
-          }
-        }
-
-        // 如果资源未加载，尝试自动加载
-        if (!instanceResourceLoaded[instanceId] && currentResource) {
-          log.info('资源未加载，尝试自动加载...');
-          const loaded = await autoLoadResource();
-          if (!loaded) {
-            throw new Error(t('taskList.autoConnect.resourceFailed'));
-          }
-        }
-
-        setAutoConnectPhase('idle');
-
-        const enabledTasks = tasks.filter((t) => t.enabled);
-        log.info('开始执行任务, 数量:', enabledTasks.length);
-
-        // 构建任务配置列表，同时预注册 entry -> taskName 映射（解决时序问题）
-        const taskConfigs: TaskConfig[] = [];
-        for (const selectedTask of enabledTasks) {
-          const taskDef = projectInterface?.task.find((t) => t.name === selectedTask.taskName);
-          if (!taskDef) continue;
-
-          taskConfigs.push({
-            entry: taskDef.entry,
-            pipeline_override: generateTaskPipelineOverride(selectedTask, projectInterface),
-          });
-          // 预注册 entry -> taskName 映射，确保回调时能找到任务名
-          const taskDisplayName =
-            selectedTask.customName ||
-            resolveI18nText(taskDef.label, translations) ||
-            selectedTask.taskName;
-          registerEntryTaskName(taskDef.entry, taskDisplayName);
-        }
-
-        if (taskConfigs.length === 0) {
-          log.warn('没有可执行的任务');
-          setIsStarting(false);
-          return;
-        }
-
-        // 准备 Agent 配置（如果有）
-        let agentConfig: AgentConfig | undefined;
-        if (projectInterface?.agent) {
-          agentConfig = {
-            child_exec: projectInterface.agent.child_exec,
-            child_args: projectInterface.agent.child_args,
-            identifier: projectInterface.agent.identifier,
-            timeout: projectInterface.agent.timeout,
-          };
-        }
-
-        updateInstance(instance.id, { isRunning: true });
-        setInstanceTaskStatus(instance.id, 'Running');
-        setShowAddTaskPanel(false);
-
-        // 启动任务（支持 Agent）
-        const taskIds = await maaService.startTasks(
-          instance.id,
-          taskConfigs,
-          agentConfig,
-          basePath,
-          tcpCompatMode,
-        );
-
-        log.info('任务已提交, task_ids:', taskIds);
-
-        // 初始化任务运行状态：所有启用的任务设为 pending
-        const enabledTaskIds = enabledTasks.map((t) => t.id);
-        setAllTasksRunStatus(instance.id, enabledTaskIds, 'pending');
-
-        // 开始任务时折叠所有任务
-        collapseAllTasks(instance.id, false);
-
-        // 记录 maaTaskId -> selectedTaskId 的映射关系，并注册 task_id 与任务名的映射
-        taskIds.forEach((maaTaskId, index) => {
-          if (enabledTasks[index]) {
-            registerMaaTaskMapping(instance.id, maaTaskId, enabledTasks[index].id);
-            // 注册 task_id 与任务名的映射（使用自定义名称或 label）
-            const taskDef = projectInterface?.task.find(
-              (t) => t.name === enabledTasks[index].taskName,
-            );
-            const taskDisplayName =
-              enabledTasks[index].customName ||
-              resolveI18nText(taskDef?.label, translations) ||
-              enabledTasks[index].taskName;
-            registerTaskIdName(maaTaskId, taskDisplayName);
-          }
+        // 调用统一入口启动任务，传入进度回调以更新 UI 状态
+        const success = await startTasksForInstance(instance, {
+          onPhaseChange: setAutoConnectPhase,
         });
 
-        // 第一个任务设为 running
-        if (enabledTasks.length > 0) {
-          setTaskRunStatus(instance.id, enabledTasks[0].id, 'running');
+        if (!success) {
+          throw new Error(t('taskList.autoConnect.startFailed'));
         }
-
-        // 设置任务队列，由回调监听处理完成状态
-        runningInstanceIdRef.current = instance.id;
-        setPendingTaskIds(instance.id, taskIds);
-        setCurrentTaskIndexStore(instance.id, 0);
-        setInstanceCurrentTaskId(instance.id, taskIds[0]);
-        setIsStarting(false);
       } catch (err) {
         log.error('任务启动异常:', err);
         setAutoConnectError(err instanceof Error ? err.message : String(err));
         setAutoConnectPhase('idle');
-        // 出错时也尝试停止 Agent
-        if (projectInterface?.agent) {
-          try {
-            await maaService.stopAgent(instance.id);
-          } catch {
-            // 忽略停止 agent 的错误
-          }
-        }
-        updateInstance(instance.id, { isRunning: false });
-        setInstanceTaskStatus(instance.id, 'Failed');
-        // 清空任务运行状态
-        clearTaskRunStatus(instance.id);
-        clearPendingTasks(instance.id);
+      } finally {
         setIsStarting(false);
       }
     }

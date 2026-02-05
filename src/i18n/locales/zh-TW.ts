@@ -130,6 +130,7 @@ export default {
       noSavedDevice: '沒有儲存的裝置設定',
       connectFailed: '自動連接失敗',
       resourceFailed: '資源載入失敗',
+      startFailed: '任務啟動失敗',
       needConfig: '請先連接裝置並載入資源，或在連接面板儲存裝置設定',
     },
   },
@@ -178,6 +179,35 @@ export default {
     invalidInput: '輸入格式不正確',
   },
 
+  // 前置/後置動作
+  action: {
+    preAction: '前置動作',
+    postAction: '後置動作',
+    program: '程式路徑',
+    programPlaceholder: '輸入程式路徑或點擊右側瀏覽...',
+    args: '附加參數',
+    argsPlaceholder: '輸入附加參數（可選）',
+    browse: '瀏覽',
+    waitForExit: '阻塞執行',
+    waitForExitHintPre: '啟用時等待程序退出後再繼續，適用於執行腳本等需要同步完成的操作；禁用時啟動程序後立即繼續，並循環輪詢裝置連線狀態，適用於啟動遊戲等非同步場景',
+    waitForExitHintPost: '啟用時等待程序退出後再繼續，適用於執行腳本等需要同步完成的操作；禁用時啟動程序後立即返回',
+    // 日誌訊息
+    waitingForDevice: '正在等待裝置就緒...',
+    waitingForWindow: '正在等待視窗就緒...',
+    deviceReady: '裝置已就緒',
+    windowReady: '視窗已就緒',
+    deviceWaitTimeout: '等待裝置逾時',
+    windowWaitTimeout: '等待視窗逾時',
+    preActionStarting: '正在執行前置動作...',
+    preActionCompleted: '前置動作執行完成',
+    preActionFailed: '前置動作執行失敗: {{error}}',
+    preActionExitCode: '前置動作結束碼: {{code}}',
+    postActionStarting: '正在執行後置動作...',
+    postActionCompleted: '後置動作執行完成',
+    postActionFailed: '後置動作執行失敗: {{error}}',
+    postActionExitCode: '後置動作結束碼: {{code}}',
+  },
+
   // 選項編輯器
   optionEditor: {
     loadingDescription: '載入描述中...',
@@ -201,6 +231,7 @@ export default {
     disconnected: '未連接',
     connectionFailed: '連接失敗',
     refreshDevices: '重新整理裝置',
+    refreshWindows: '重新整理視窗',
     refresh: '重新整理裝置',
     connect: '連接',
     disconnect: '中斷連接',
@@ -211,6 +242,7 @@ export default {
     playcoverHint: '輸入 PlayCover 應用程式監聽位址',
     lastSelected: '上次選擇 · 點擊搜尋',
     savedDeviceNotFound: '未找到上次的裝置，請檢查連接或重新選擇',
+    savedWindowNotFound: '未找到上次的視窗，請檢查連接或重新選擇',
   },
 
   // 資源
@@ -308,6 +340,8 @@ export default {
     searchPlaceholder: '搜尋任務...',
     noResults: '沒有找到符合的任務',
     alreadyAdded: '已新增',
+    specialTasks: '特殊任務',
+    allSpecialTasksAdded: '已全部新增',
   },
 
   // 關於

@@ -133,6 +133,7 @@ export default {
       noSavedDevice: '保存されたデバイス設定がありません',
       connectFailed: '自動接続に失敗しました',
       resourceFailed: 'リソースの読み込みに失敗しました',
+      startFailed: 'タスクの開始に失敗しました',
       needConfig:
         'まずデバイスを接続してリソースを読み込むか、接続パネルでデバイス設定を保存してください',
     },
@@ -182,6 +183,35 @@ export default {
     invalidInput: '入力形式が正しくありません',
   },
 
+  // 前処理/後処理アクション
+  action: {
+    preAction: '前処理アクション',
+    postAction: '後処理アクション',
+    program: 'プログラムパス',
+    programPlaceholder: 'プログラムパスを入力または参照...',
+    args: '追加引数',
+    argsPlaceholder: '追加引数を入力（オプション）',
+    browse: '参照',
+    waitForExit: 'ブロッキング実行',
+    waitForExitHintPre: '有効にするとプロセスが終了するまで待機してから続行します。スクリプト実行など同期操作に適しています。無効にするとプロセス起動後すぐに続行し、デバイス接続状態をポーリングします。ゲーム起動など非同期シナリオに適しています',
+    waitForExitHintPost: '有効にするとプロセスが終了するまで待機してから続行します。スクリプト実行など同期操作に適しています。無効にするとプロセス起動後すぐに戻ります',
+    // ログメッセージ
+    waitingForDevice: 'デバイスの準備を待機中...',
+    waitingForWindow: 'ウィンドウの準備を待機中...',
+    deviceReady: 'デバイスが準備完了',
+    windowReady: 'ウィンドウが準備完了',
+    deviceWaitTimeout: 'デバイス待機タイムアウト',
+    windowWaitTimeout: 'ウィンドウ待機タイムアウト',
+    preActionStarting: '前処理アクションを実行中...',
+    preActionCompleted: '前処理アクション完了',
+    preActionFailed: '前処理アクション失敗: {{error}}',
+    preActionExitCode: '前処理アクション終了コード: {{code}}',
+    postActionStarting: '後処理アクションを実行中...',
+    postActionCompleted: '後処理アクション完了',
+    postActionFailed: '後処理アクション失敗: {{error}}',
+    postActionExitCode: '後処理アクション終了コード: {{code}}',
+  },
+
   // オプションエディタ
   optionEditor: {
     loadingDescription: '説明を読み込み中...',
@@ -205,6 +235,7 @@ export default {
     disconnected: '未接続',
     connectionFailed: '接続に失敗しました',
     refreshDevices: 'デバイスを更新',
+    refreshWindows: 'ウィンドウを更新',
     refresh: 'デバイスを更新',
     connect: '接続',
     disconnect: '切断',
@@ -216,6 +247,8 @@ export default {
     lastSelected: '前回の選択 · クリックして検索',
     savedDeviceNotFound:
       '前回のデバイスが見つかりません。接続を確認するか、別のデバイスを選択してください',
+    savedWindowNotFound:
+      '前回のウィンドウが見つかりません。接続を確認するか、別のウィンドウを選択してください',
   },
 
   // リソース
@@ -313,6 +346,8 @@ export default {
     searchPlaceholder: 'タスクを検索...',
     noResults: '一致するタスクが見つかりません',
     alreadyAdded: '追加済み',
+    specialTasks: '特殊タスク',
+    allSpecialTasksAdded: 'すべて追加済み',
   },
 
   // このアプリについて

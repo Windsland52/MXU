@@ -133,6 +133,7 @@ export default {
       noSavedDevice: '저장된 기기 설정이 없습니다',
       connectFailed: '자동 연결에 실패했습니다',
       resourceFailed: '리소스 로딩에 실패했습니다',
+      startFailed: '작업 시작에 실패했습니다',
       needConfig: '먼저 기기를 연결하고 리소스를 로드하거나 연결 패널에서 기기 설정을 저장하세요',
     },
   },
@@ -181,6 +182,35 @@ export default {
     invalidInput: '입력 형식이 올바르지 않습니다',
   },
 
+  // 전/후 동작
+  action: {
+    preAction: '전처리 동작',
+    postAction: '후처리 동작',
+    program: '프로그램 경로',
+    programPlaceholder: '프로그램 경로를 입력하거나 찾아보기...',
+    args: '추가 인수',
+    argsPlaceholder: '추가 인수 입력 (선택사항)',
+    browse: '찾아보기',
+    waitForExit: '차단 실행',
+    waitForExitHintPre: '활성화하면 프로세스가 종료될 때까지 대기한 후 계속합니다. 스크립트 실행과 같은 동기 작업에 적합합니다. 비활성화하면 프로세스 시작 후 즉시 계속하고 장치 연결 상태를 폴링합니다. 게임 시작과 같은 비동기 시나리오에 적합합니다',
+    waitForExitHintPost: '활성화하면 프로세스가 종료될 때까지 대기한 후 계속합니다. 스크립트 실행과 같은 동기 작업에 적합합니다. 비활성화하면 프로세스 시작 후 즉시 반환합니다',
+    // 로그 메시지
+    waitingForDevice: '장치 준비 대기 중...',
+    waitingForWindow: '윈도우 준비 대기 중...',
+    deviceReady: '장치 준비 완료',
+    windowReady: '윈도우 준비 완료',
+    deviceWaitTimeout: '장치 대기 시간 초과',
+    windowWaitTimeout: '윈도우 대기 시간 초과',
+    preActionStarting: '전처리 동작 실행 중...',
+    preActionCompleted: '전처리 동작 완료',
+    preActionFailed: '전처리 동작 실패: {{error}}',
+    preActionExitCode: '전처리 동작 종료 코드: {{code}}',
+    postActionStarting: '후처리 동작 실행 중...',
+    postActionCompleted: '후처리 동작 완료',
+    postActionFailed: '후처리 동작 실패: {{error}}',
+    postActionExitCode: '후처리 동작 종료 코드: {{code}}',
+  },
+
   // 옵션 에디터
   optionEditor: {
     loadingDescription: '설명 로딩 중...',
@@ -204,14 +234,18 @@ export default {
     disconnected: '연결 안 됨',
     connectionFailed: '연결에 실패했습니다',
     refreshDevices: '기기 새로고침',
+    refreshWindows: '윈도우 새로고침',
     refresh: '기기 새로고침',
     connect: '연결',
     disconnect: '연결 해제',
     selectDevice: '기기를 선택하세요',
+    selectWindow: '윈도우를 선택하세요',
     noDevices: '기기를 찾을 수 없습니다',
+    noWindows: '윈도우를 찾을 수 없습니다',
     playcoverHint: 'PlayCover 앱 리슨 주소를 입력하세요',
     lastSelected: '이전 선택 · 클릭하여 검색',
     savedDeviceNotFound: '이전 기기를 찾을 수 없습니다. 연결을 확인하거나 다른 기기를 선택하세요',
+    savedWindowNotFound: '이전 윈도우를 찾을 수 없습니다. 연결을 확인하거나 다른 윈도우를 선택하세요',
   },
 
   // 리소스
@@ -307,6 +341,8 @@ export default {
     searchPlaceholder: '작업 검색...',
     noResults: '일치하는 작업을 찾을 수 없습니다',
     alreadyAdded: '추가됨',
+    specialTasks: '특수 작업',
+    allSpecialTasksAdded: '모두 추가됨',
   },
 
   // 정보

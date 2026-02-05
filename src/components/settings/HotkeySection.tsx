@@ -1,7 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import { Key, Play, StopCircle, AlertCircle, Globe } from 'lucide-react';
-import clsx from 'clsx';
 import { useAppStore } from '@/stores/appStore';
+import { SwitchButton } from '@/components/FormControls';
 
 export function HotkeySection() {
   const { t } = useTranslation();
@@ -109,20 +109,10 @@ export function HotkeySection() {
               <p className="text-xs text-text-muted mt-0.5">{t('settings.hotkeysGlobalHint')}</p>
             </div>
           </div>
-          <button
-            onClick={() => setHotkeys({ ...hotkeys, globalEnabled: !hotkeys.globalEnabled })}
-            className={clsx(
-              'relative w-11 h-6 rounded-full transition-colors flex-shrink-0',
-              hotkeys.globalEnabled ? 'bg-accent' : 'bg-bg-active',
-            )}
-          >
-            <span
-              className={clsx(
-                'absolute top-1 left-1 w-4 h-4 rounded-full bg-white shadow-sm transition-transform duration-200',
-                hotkeys.globalEnabled ? 'translate-x-5' : 'translate-x-0',
-              )}
-            />
-          </button>
+          <SwitchButton
+            value={hotkeys.globalEnabled ?? false}
+            onChange={(v) => setHotkeys({ ...hotkeys, globalEnabled: v })}
+          />
         </div>
       </div>
     </section>

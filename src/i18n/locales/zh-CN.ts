@@ -133,6 +133,7 @@ export default {
       noSavedDevice: '没有保存的设备配置',
       connectFailed: '自动连接失败',
       resourceFailed: '资源加载失败',
+      startFailed: '任务启动失败',
       needConfig: '请先连接设备并加载资源，或在连接面板保存设备配置',
     },
   },
@@ -181,6 +182,35 @@ export default {
     invalidInput: '输入格式不正确',
   },
 
+  // 前置/后置动作
+  action: {
+    preAction: '前置动作',
+    postAction: '后置动作',
+    program: '程序路径',
+    programPlaceholder: '输入程序路径或点击右侧浏览...',
+    args: '附加参数',
+    argsPlaceholder: '输入附加参数（可选）',
+    browse: '浏览',
+    waitForExit: '阻塞执行',
+    waitForExitHintPre: '启用时等待进程退出后再继续，适用于执行脚本等需要同步完成的操作；禁用时启动进程后立即继续，并循环轮询设备连接状态，适用于启动游戏等异步场景',
+    waitForExitHintPost: '启用时等待进程退出后再继续，适用于执行脚本等需要同步完成的操作；禁用时启动进程后立即返回',
+    // 日志消息
+    waitingForDevice: '正在等待设备就绪...',
+    waitingForWindow: '正在等待窗口就绪...',
+    deviceReady: '设备已就绪',
+    windowReady: '窗口已就绪',
+    deviceWaitTimeout: '等待设备超时',
+    windowWaitTimeout: '等待窗口超时',
+    preActionStarting: '正在执行前置动作...',
+    preActionCompleted: '前置动作执行完成',
+    preActionFailed: '前置动作执行失败: {{error}}',
+    preActionExitCode: '前置动作退出码: {{code}}',
+    postActionStarting: '正在执行后置动作...',
+    postActionCompleted: '后置动作执行完成',
+    postActionFailed: '后置动作执行失败: {{error}}',
+    postActionExitCode: '后置动作退出码: {{code}}',
+  },
+
   // 选项编辑器
   optionEditor: {
     loadingDescription: '加载描述中...',
@@ -204,6 +234,7 @@ export default {
     disconnected: '未连接',
     connectionFailed: '连接失败',
     refreshDevices: '刷新设备',
+    refreshWindows: '刷新窗口',
     refresh: '刷新设备',
     connect: '连接',
     disconnect: '断开连接',
@@ -214,6 +245,7 @@ export default {
     playcoverHint: '输入 PlayCover 应用监听地址',
     lastSelected: '上次选择 · 点击搜索',
     savedDeviceNotFound: '未找到上次的设备，请检查连接或重新选择',
+    savedWindowNotFound: '未找到上次的窗口，请检查连接或重新选择',
   },
 
   // 资源
@@ -311,6 +343,8 @@ export default {
     searchPlaceholder: '搜索任务...',
     noResults: '没有找到匹配的任务',
     alreadyAdded: '已添加',
+    specialTasks: '特殊任务',
+    allSpecialTasksAdded: '已全部添加',
   },
 
   // 关于

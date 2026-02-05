@@ -2,6 +2,17 @@ export { TitleBar } from './TitleBar';
 export { TabBar } from './TabBar';
 export { TaskList } from './TaskList';
 export { TaskItem } from './TaskItem';
+export { ActionItem } from './ActionItem';
+export {
+  SwitchButton,
+  TextInput,
+  NumberInput,
+  FileInput,
+  SwitchField,
+  TextField,
+  NumberField,
+  FileField,
+} from './FormControls';
 export { OptionEditor } from './OptionEditor';
 export { AddTaskPanel } from './AddTaskPanel';
 export { Toolbar } from './Toolbar';
