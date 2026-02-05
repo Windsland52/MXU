@@ -184,6 +184,8 @@ export default {
     loadedFromFile: '內容来自本機檔案',
     loadedFromUrl: '內容来自網路',
     loadDescriptionFailed: '載入失敗',
+    searchPlaceholder: '搜尋選項...',
+    noMatchingOptions: '無匹配選項',
   },
 
   // 控制器

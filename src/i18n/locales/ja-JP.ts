@@ -188,6 +188,8 @@ export default {
     loadedFromFile: 'ローカルファイルから読み込み',
     loadedFromUrl: 'ネットワークから読み込み',
     loadDescriptionFailed: '読み込みに失敗しました',
+    searchPlaceholder: 'オプションを検索...',
+    noMatchingOptions: '一致するオプションがありません',
   },
 
   // コントローラー

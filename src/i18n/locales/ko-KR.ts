@@ -187,6 +187,8 @@ export default {
     loadedFromFile: '로컬 파일에서 로드됨',
     loadedFromUrl: '네트워크에서 로드됨',
     loadDescriptionFailed: '로딩 실패',
+    searchPlaceholder: '옵션 검색...',
+    noMatchingOptions: '일치하는 옵션 없음',
   },
 
   // 컨트롤러

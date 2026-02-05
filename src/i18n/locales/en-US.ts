@@ -191,6 +191,8 @@ export default {
     loadedFromFile: 'Content loaded from local file',
     loadedFromUrl: 'Content loaded from URL',
     loadDescriptionFailed: 'Failed to load',
+    searchPlaceholder: 'Search options...',
+    noMatchingOptions: 'No matching options',
   },
 
   // Controller
