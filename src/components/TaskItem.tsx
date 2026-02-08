@@ -745,7 +745,7 @@ export function TaskItem({ instanceId, task }: TaskItemProps) {
       style={style}
       onContextMenu={handleContextMenu}
       className={clsx(
-        'group bg-bg-secondary rounded-lg border border-border overflow-hidden transition-shadow relative',
+        'group bg-bg-secondary rounded-lg border border-border transition-shadow relative',
         isDragging && 'shadow-lg opacity-50',
         taskRunStatus === 'running' && 'task-item-running',
         isAnimating && 'animate-task-slide-in',
@@ -945,8 +945,8 @@ export function TaskItem({ instanceId, task }: TaskItemProps) {
           className="grid transition-[grid-template-rows] duration-150 ease-out"
           style={{ gridTemplateRows: task.expanded ? '1fr' : '0fr' }}
         >
-          <div className="overflow-hidden min-h-0">
-            <div className="border-t border-border bg-bg-tertiary p-3">
+          <div className={clsx('min-h-0', task.expanded ? 'overflow-visible' : 'overflow-hidden')}>
+            <div className="border-t border-border bg-bg-tertiary p-3 rounded-b-lg">
               {/* 任务描述 */}
               {hasDescription && (
                 <div className={hasOptions || isIncompatible ? 'mb-3' : ''}>
