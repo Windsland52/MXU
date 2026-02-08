@@ -500,8 +500,11 @@ export function TaskItem({ instanceId, task }: TaskItemProps) {
             ? optionValue.caseName
             : optionDef.default_case || optionDef.cases?.[0]?.name || '';
         const selectedCase = optionDef.cases?.find((c) => c.name === caseName);
+        // MXU 特殊任务的 case label 也需要用 t() 翻译
         const caseLabel = selectedCase
-          ? resolveI18nText(selectedCase.label, langKey) || selectedCase.name
+          ? isMxuOption
+            ? t(selectedCase.label || selectedCase.name)
+            : resolveI18nText(selectedCase.label, langKey) || selectedCase.name
           : caseName;
         previews.push({
           key: optionKey,

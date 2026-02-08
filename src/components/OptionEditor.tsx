@@ -420,10 +420,16 @@ export function OptionEditor({
           className="flex-1"
           value={selectedCaseName}
           disabled={disabled}
-          options={optionDef.cases.map((caseItem) => ({
-            value: caseItem.name,
-            label: resolveI18nText(caseItem.label, langKey) || caseItem.name,
-          }))}
+          options={optionDef.cases.map((caseItem) => {
+            // 对于 MXU 内置选项，使用 t() 翻译；否则使用 resolveI18nText
+            const label = isMxuOption
+              ? t(caseItem.label || caseItem.name)
+              : resolveI18nText(caseItem.label, langKey) || caseItem.name;
+            return {
+              value: caseItem.name,
+              label,
+            };
+          })}
           onChange={(next) => {
             if (disabled) return;
             setTaskOptionValue(instanceId, taskId, optionKey, {
