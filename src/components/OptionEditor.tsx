@@ -156,7 +156,6 @@ function InputField({
   isMxuOption?: boolean;
   t?: (key: string) => string;
 }) {
-  const [showTooltip, setShowTooltip] = useState(false);
   // 对于 MXU 内置选项，使用 t() 翻译
   const inputLabel =
     isMxuOption && t
@@ -206,18 +205,9 @@ function InputField({
           />
           <span className="text-sm text-text-tertiary">{inputLabel}</span>
           {inputDescription && (
-            <div className="relative">
-              <Info
-                className="w-3.5 h-3.5 text-text-muted cursor-help flex-shrink-0"
-                onMouseEnter={() => setShowTooltip(true)}
-                onMouseLeave={() => setShowTooltip(false)}
-              />
-              {showTooltip && (
-                <div className="absolute left-0 bottom-full mb-1 z-50 px-2 py-1 text-xs bg-bg-primary border border-border rounded shadow-lg w-max max-w-[200px] whitespace-pre-wrap">
-                  {inputDescription}
-                </div>
-              )}
-            </div>
+            <Tooltip content={inputDescription} side="top" align="start" maxWidth="max-w-[200px]">
+              <Info className="w-3.5 h-3.5 text-text-muted cursor-help flex-shrink-0" />
+            </Tooltip>
           )}
         </div>
         {input.input_type === 'file' ? (
