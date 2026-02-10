@@ -447,3 +447,45 @@ body {
   margin: 0.5rem 0 0.25rem 0;
   font-weight: 600;
 }
+
+/* driver.js 引导样式覆盖 - 匹配项目主题 */
+.mxu-onboarding-popover.driver-popover {
+  background-color: var(--color-accent);
+  color: white;
+}
+
+.mxu-onboarding-popover .driver-popover-title {
+  color: white;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.mxu-onboarding-popover .driver-popover-description {
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 0.75rem;
+  line-height: 1.5;
+}
+
+.mxu-onboarding-popover .driver-popover-close-btn {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.mxu-onboarding-popover .driver-popover-close-btn:hover {
+  color: white;
+}
+
+.mxu-onboarding-popover .driver-popover-arrow-side-left {
+  border-left-color: var(--color-accent);
+}
+
+.mxu-onboarding-popover .driver-popover-arrow-side-right {
+  border-right-color: var(--color-accent);
+}
+
+.mxu-onboarding-popover .driver-popover-arrow-side-top {
+  border-top-color: var(--color-accent);
+}
+
+.mxu-onboarding-popover .driver-popover-arrow-side-bottom {
+  border-bottom-color: var(--color-accent);
+}

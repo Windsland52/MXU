@@ -1005,7 +1005,7 @@ export function ConnectionPanel() {
   }
 
   return (
-    <div className="bg-bg-secondary rounded-lg border border-border">
+    <div id="connection-panel" className="bg-bg-secondary rounded-lg border border-border">
       {/* 标题栏（可点击折叠） */}
       <button
         onClick={() => setConnectionPanelExpanded(!connectionPanelExpanded)}

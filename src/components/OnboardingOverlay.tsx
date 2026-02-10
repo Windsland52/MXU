@@ -1,11 +1,24 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useRef, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ArrowRight, Sparkles } from 'lucide-react';
+import { driver, type DriveStep, type Driver } from 'driver.js';
+import 'driver.js/dist/driver.css';
 import { useAppStore } from '@/stores/appStore';
 
 /**
+ * 检查当前是否有任何模态弹窗（z-50 级别的 fixed 遮罩）正在显示。
+ * 涵盖 WelcomeDialog、InstallConfirmModal、VCRedistModal、
+ * BadPathModal、VersionWarningModal 等所有全局遮罩。
+ */
+function hasActiveModal(): boolean {
+  // 所有模态弹窗都使用 fixed inset-0 z-50 的模式
+  const overlays = document.querySelectorAll('.fixed.inset-0.z-50');
+  return overlays.length > 0;
+}
+
+/**
  * 新用户引导覆盖层
- * 首次启动时引导用户关注右侧的连接设置面板
+ * 使用 driver.js 高亮连接设置面板，引导用户完成首次配置。
+ * 会等待所有模态弹窗（Welcome、安装确认等）关闭后再显示。
  */
 export function OnboardingOverlay() {
   const { t } = useTranslation();
@@ -15,33 +28,56 @@ export function OnboardingOverlay() {
     instanceConnectionStatus,
     instanceResourceLoaded,
     activeInstanceId,
-    rightPanelWidth,
   } = useAppStore();
 
-  const [isVisible, setIsVisible] = useState(false);
-  const [isExiting, setIsExiting] = useState(false);
-  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const driverRef = useRef<Driver | null>(null);
+  const pollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const startedRef = useRef(false);
 
-  // 检查是否应该显示引导
+  // 启动 driver.js 引导
+  const startTour = useCallback(() => {
+    if (startedRef.current || onboardingCompleted) return;
+
+    const element = document.getElementById('connection-panel');
+    if (!element) return;
+
+    startedRef.current = true;
+
+    const steps: DriveStep[] = [
+      {
+        element: '#connection-panel',
+        popover: {
+          title: t('onboarding.title'),
+          description: t('onboarding.message'),
+          side: 'left',
+          align: 'start',
+          // 单步引导，只显示关闭按钮
+          showButtons: ['close'],
+        },
+      },
+    ];
+
+    const driverInstance = driver({
+      steps,
+      animate: true,
+      overlayColor: 'black',
+      overlayOpacity: 0.4,
+      stagePadding: 6,
+      stageRadius: 8,
+      allowClose: true,
+      popoverClass: 'mxu-onboarding-popover',
+      onDestroyed: () => {
+        setOnboardingCompleted(true);
+      },
+    });
+
+    driverRef.current = driverInstance;
+    driverInstance.drive();
+  }, [onboardingCompleted, t, setOnboardingCompleted]);
+
+  // 监听连接状态，一旦用户成功连接设备并加载资源，自动关闭引导
   useEffect(() => {
-    // 已完成引导，不显示
-    if (onboardingCompleted) return;
-
-    // 延迟显示，等待界面渲染完成
-    timeoutRef.current = setTimeout(() => {
-      setIsVisible(true);
-    }, 500);
-
-    return () => {
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-      }
-    };
-  }, [onboardingCompleted]);
-
-  // 监听连接状态，一旦用户成功连接设备并加载资源，自动完成引导
-  useEffect(() => {
-    if (!isVisible || onboardingCompleted) return;
+    if (onboardingCompleted || !driverRef.current?.isActive()) return;
 
     const currentInstanceId = activeInstanceId;
     if (!currentInstanceId) return;
@@ -50,112 +86,56 @@ export function OnboardingOverlay() {
     const isResourceLoaded = instanceResourceLoaded[currentInstanceId];
 
     if (isConnected && isResourceLoaded) {
-      handleDismiss();
+      driverRef.current?.destroy();
+      setOnboardingCompleted(true);
     }
   }, [
-    isVisible,
     onboardingCompleted,
     activeInstanceId,
     instanceConnectionStatus,
     instanceResourceLoaded,
+    setOnboardingCompleted,
   ]);
 
-  const handleDismiss = () => {
-    setIsExiting(true);
-    setTimeout(() => {
-      setIsVisible(false);
-      setOnboardingCompleted(true);
-    }, 200);
-  };
+  // 等待所有模态弹窗关闭后再启动引导
+  useEffect(() => {
+    if (onboardingCompleted || startedRef.current) return;
 
-  if (!isVisible) return null;
+    // 先等一个初始延迟，让界面和可能的模态弹窗都渲染完成
+    const initialDelay = setTimeout(() => {
+      // 如果此时没有模态弹窗，直接启动
+      if (!hasActiveModal()) {
+        startTour();
+        return;
+      }
 
-  // 连接设置卡片的位置参数
-  const cardTop = 79; // 标签栏高度 + padding
-  const cardHeight = 222; // 连接设置卡片的大致高度
-  const cardRight = 5; // 右侧 padding
-  const cardWidth = rightPanelWidth - 12; // 卡片宽度（减去一些边距）
+      // 否则轮询等待模态弹窗关闭
+      pollTimerRef.current = setInterval(() => {
+        if (!hasActiveModal()) {
+          if (pollTimerRef.current) {
+            clearInterval(pollTimerRef.current);
+            pollTimerRef.current = null;
+          }
+          // 模态弹窗关闭后再延迟一小段时间，让退出动画完成
+          setTimeout(() => {
+            startTour();
+          }, 300);
+        }
+      }, 200);
+    }, 600);
 
-  // 遮罩区域宽度（绿框左边缘到视口右边的距离）
-  const rightMaskWidth = cardRight + cardWidth; // = rightPanelWidth - 7
+    return () => {
+      clearTimeout(initialDelay);
+      if (pollTimerRef.current) {
+        clearInterval(pollTimerRef.current);
+        pollTimerRef.current = null;
+      }
+      if (driverRef.current?.isActive()) {
+        driverRef.current.destroy();
+      }
+    };
+  }, [onboardingCompleted, startTour]);
 
-  return (
-    <div
-      className={`fixed inset-0 z-40 pointer-events-none ${isExiting ? 'animate-out fade-out duration-200' : 'animate-in fade-in duration-300'}`}
-    >
-      {/* 半透明遮罩，只露出连接设置卡片 */}
-      <div className="absolute inset-0 pointer-events-auto">
-        {/* 左侧遮罩 - 从左边铺到绿框左边缘 */}
-        <div
-          className="absolute top-0 left-0 bottom-0 bg-black/40 backdrop-blur-[1px]"
-          style={{ right: `${rightMaskWidth}px` }}
-          onClick={handleDismiss}
-        />
-        {/* 右上遮罩（标签栏 + 连接设置上方） */}
-        <div
-          className="absolute top-0 right-0 bg-black/40 backdrop-blur-[1px]"
-          style={{
-            width: `${rightMaskWidth}px`,
-            height: `${cardTop}px`,
-          }}
-          onClick={handleDismiss}
-        />
-        {/* 右下遮罩（连接设置下方） */}
-        <div
-          className="absolute right-0 bottom-0 bg-black/40 backdrop-blur-[1px]"
-          style={{
-            width: `${rightMaskWidth}px`,
-            top: `${cardTop + cardHeight}px`,
-          }}
-          onClick={handleDismiss}
-        />
-      </div>
-
-      {/* 引导提示气泡 - 指向连接设置卡片 */}
-      <div
-        className={`absolute pointer-events-auto ${isExiting ? 'animate-out slide-out-to-right-4 fade-out duration-200' : 'animate-in slide-in-from-right-4 fade-in duration-300 delay-150'}`}
-        style={{
-          top: `${cardTop + 40}px`,
-          right: `calc(${rightPanelWidth}px + 20px)`,
-        }}
-      >
-        <div className="relative bg-accent text-white rounded-xl shadow-2xl p-4 max-w-[280px]">
-          {/* 箭头指向右侧 */}
-          <div className="absolute top-1/2 -right-2 -translate-y-1/2 w-0 h-0 border-t-8 border-b-8 border-l-8 border-transparent border-l-accent" />
-
-          <div className="flex items-start gap-3">
-            <div className="flex-shrink-0 w-8 h-8 rounded-full bg-white/20 flex items-center justify-center">
-              <Sparkles className="w-4 h-4" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <h3 className="font-semibold text-sm mb-1">{t('onboarding.title')}</h3>
-              <p className="text-xs text-white/90 leading-relaxed">{t('onboarding.message')}</p>
-            </div>
-          </div>
-
-          {/* 按钮 */}
-          <button
-            onClick={handleDismiss}
-            className="mt-3 w-full flex items-center justify-center gap-1.5 px-3 py-1.5 bg-white/20 hover:bg-white/30 rounded-lg text-sm font-medium transition-colors"
-          >
-            <span>{t('onboarding.gotIt')}</span>
-            <ArrowRight className="w-3.5 h-3.5" />
-          </button>
-        </div>
-      </div>
-
-      {/* 连接设置卡片高亮边框效果 */}
-      <div
-        className="absolute pointer-events-none"
-        style={{
-          top: `${cardTop}px`,
-          right: `${cardRight}px`,
-          width: `${cardWidth}px`,
-          height: `${cardHeight}px`,
-        }}
-      >
-        <div className="w-full h-full rounded-lg ring-2 ring-accent ring-offset-2 ring-offset-transparent animate-pulse" />
-      </div>
-    </div>
-  );
+  // driver.js 自己管理 DOM，这个组件不需要渲染任何内容
+  return null;
 }
