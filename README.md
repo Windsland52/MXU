@@ -72,7 +72,9 @@ curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 source $HOME/.cargo/env
 ```
 
+<!-- markdownlint-disable MD036 -->
 **项目依赖**
+<!-- markdownlint-enable MD036 -->
 
 ```bash
 pnpm install
@@ -125,7 +127,8 @@ pnpm tauri build
 
 ## ☕ 赞助
 
-<!-- markdownlint-disable MD045 -->
+<!-- markdownlint-disable MD033 MD045 -->
 <a href="https://afdian.com/a/misteo">
   <img width="200" src="https://pic1.afdiancdn.com/static/img/welcome/button-sponsorme.png">
 </a>
+<!-- markdownlint-enable MD033 MD045 -->
