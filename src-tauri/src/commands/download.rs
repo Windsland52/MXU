@@ -54,7 +54,6 @@ pub async fn download_file(
     // 构建 HTTP 客户端和请求
     let mut client_builder = reqwest::Client::builder()
         .user_agent(build_user_agent())
-        .timeout(std::time::Duration::from_secs(30))
         .connect_timeout(std::time::Duration::from_secs(10));
 
     // 配置代理（如果提供）
